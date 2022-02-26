@@ -22,9 +22,90 @@ class WorkJourney(ABC):
         # need to change below. Could be a function for random start state.
         
         self.start = start_state 
-        self.goal = goal_state # should be beter way to code this
+        self.goal_state = goal_state # should be beter way to code this
+        self.croissant = 10 # should be beter way to code this
+        self.cogs = 32 # should be beter way to code this
         self.max_episodes = max_episodes
         self.max_steps = max_steps
+        self.rng = np.random.default_rng(42)
+        
+    def run_episode(self, Q, alpha, gamma, epsilon):
+        """Run one episode of the game.
+        
+        To do: verbose mode where we print off calculations etc as we go
+        """
+        s = self.start
+        # croissant and cogs haven't been visited yet:
+        idx_c = 0
+        idx_g = 0
+        
+        Rtot = 0 # keep a track of total reward earnt during episode
+        # keep track of actions and rewards in a numpy:
+        ar_pairs = np.ones((self.max_steps,2)) * np.nan
+        # array. Do in numpy array for easy broadcasting and array arithmetic.
+        
+        for t in range(self.max_steps):
+            R = self._get_R(self.RM, idx_g, idx_c)
+            available, best = self._get_actions(R, Q, s)
+            
+            # update states:
+            a = self._get_greedy_action(epsilon, available, best)
+            s_old = s
+            s = a
+            
+            # update Q:
+            Q[s_old, a] = Q[s_old, a] + alpha * (R[s_old, a] +
+                                                gamma * Q[s, :].max() -
+                                                Q[s_old, a])
+            
+            # update total accumulated reward for this episode
+            Rtot += R[s_old, a]
+            
+            # update action list
+            ar_pairs[t, :] = np.array([[a, R[s_old, a]]])
+            
+            # update memory if croissant or cogs have been visited
+            idx_g, idx_c = self._update_memory(s, idx_g, idx_c)
+            
+            if s == self.goal_state:
+                break
+            
+        return Rtot, Q, ar_pairs
+    
+    def Q_learning(self, alpha, gamma,
+                   eps_dict={'epsilon':0.9}):
+        """Run Q-learning algorithm for given hyper-parameters
+        
+        Pass values for alpha and gamma.
+        Epsilon and epsilon decay parameters are passed as a dictionary
+        for greater flexibility should the child class define different
+        decay functions for epsilon.
+        """
+        Q = self.create_Q()
+        # this creates arracy of shape (self.max_episodes,)
+        epsilon = self.epsilon_decay(**eps_dict)
+        
+        # create np arrays to store Q-matrix and total rewards for 
+        # each episode
+        Qs = np.zeros(shape = Q[np.newaxis].shape)
+        Rtot = np.array([])
+        # set up array to store action reward pairs for all step
+        # in each episode
+        ar_pairs = np.ones((self.max_episodes,
+                            self.max_steps,
+                            2)) * np.nan
+        
+        for episode in range(self.max_episodes):
+            r, Q, ar = self.run_episode(Q, alpha, gamma, epsilon[episode])
+            Rtot = np.concatenate((Rtot, np.array([r])))
+            Qs = np.concatenate((Qs, Q[np.newaxis]), axis=0)
+            ar_pairs[episode] = ar[np.newaxis]
+            
+            # (there is currently no early stopping defined)
+            # if self._early_stop():
+            #     break
+        
+        return Rtot, Qs, ar_pairs
         
     def display_matrix(self, M, start_idx=None, end_idx=None):
         """Display a formatted pandas DataFrame.
@@ -36,8 +117,69 @@ class WorkJourney(ABC):
         
         """
         pd.set_option("display.max_columns", None)
-        display(pd.DataFrame(Ri).loc[start_idx:end_idx, start_idx:end_idx])
+        display(pd.DataFrame(M).loc[start_idx:end_idx, start_idx:end_idx])
+        
+    def _get_actions(self, R, Q, s):
+        """Returns best and all available actions as lists
+        """
+        available = np.where(~np.isnan(R[s]))[0]
+        q_vals = [Q[s,a] for a in available]
+        best = available[np.where(q_vals == np.max(q_vals))[0]]
+        return available, best
     
+    def _get_greedy_action(self, epsilon, available, best):
+        """Given epsilon, and available and best actions,
+        Pick an appropriate action.
+        """
+        if self.rng.uniform() > epsilon:
+            a = self.rng.choice(best)
+        else:
+            a = self.rng.choice(available)
+        return a
+    
+    def epsilon_decay(self, epsilon, epsilon_decay_1,
+                      epsilon_decay_2,
+                      epsilon_decay_threshold,
+                      episodes=None):
+        """array of epsilon value. 
+        
+        Epsilon value can be accessed via episode index during training
+        The full array can be used to plot epsilon to visualise decay
+        """
+        if episodes is None: episodes = self.max_episodes
+        
+        # Calculate cumulative effect of each decay factor
+        d1 = np.ones(episodes) * epsilon_decay_1
+        d2 = np.ones(episodes) * epsilon_decay_2
+        d1c = d1.cumprod()
+        d2c = d2.cumprod()
+
+        # calculate epsilon array, using d1c and d2c after threshold breached
+        eps = d1c * epsilon
+        thresh_idx = np.argmax(eps < epsilon_decay_threshold)
+        # after threshold has been reached, epsilon decays be decay_2
+        eps[thresh_idx:] = eps[thresh_idx] * d2c[thresh_idx:] / d2c[thresh_idx]
+        
+        return eps
+    
+    def _update_memory(self, s, idx_g=None, idx_c=None):
+        """if croissant or cogs have been visited, set appropirate idx to 1
+        """
+        if s == self.croissant: idx_c = 1
+        if s == self.cogs: idx_g =1
+        return idx_g, idx_c
+    
+    def _get_R(self, RM, idx_g, idx_c):
+        """Return correct reward matrix depending on history
+        of the agent
+        """
+        return self.RM[idx_g, idx_c]
+    
+    def create_Q(self):
+        return np.zeros(self.RM[0,0].shape)
+    
+    def _early_stop():
+        return False
 
 def create_robot_work_RM(r_time = -1, r_pond = -15,
                   r_croissant = 200, r_cogs = 200,
