@@ -303,13 +303,13 @@ class RobotEnv:
     # function to run over only one eposide, takes as input alpha, gamma and epsilon
     def __run_episode(self, Q, alpha, gamma, epsilon):
         R_tot = 0
-        print(self._start)
+        #print(self._start)
         s = self._start[0]*self._dims[0]+self._start[1]
         goal_state = self._end[0]*self._dims[0]+self._end[1]
         #Q = self._Q
         R = self._R
-        print("Starting Point: ", s)
-        print("End Point: ", goal_state)
+        #print("Starting Point: ", s)
+        #print("End Point: ", goal_state)
         
         # some listes to keep track of visisted cogs and croissant cells
         # to prevent the agent from re-visit them in the same episode to collect resources
@@ -320,14 +320,14 @@ class RobotEnv:
         
         croissant_cells = [croissant_position[0]*self._dims[0]+croissant_position[1] for croissant_position in self.positions['croissant']]
            
-        print('cogs_cells: ', cogs_cells, type(cogs_cells))
-        print('croissant_cells: ', croissant_cells, type(cogs_cells))
+        #print('cogs_cells: ', cogs_cells, type(cogs_cells))
+        #print('croissant_cells: ', croissant_cells, type(cogs_cells))
         for i in range(self._max_steps):
-            print('i', i)
+            #print('i', i)
             # actions selection
             available, best = self.__get_actions(R, Q, s)
-            print('Available actions: ', available)
-            print("Best actions: ",best)
+            #print('Available actions: ', available)
+            #print("Best actions: ",best)
             
             # update states:
             # loop to avoid re visit the same crogs and croissant
@@ -335,7 +335,7 @@ class RobotEnv:
             while not move:
                 # chosse an action first
                 a = self.__get_greedy_action(epsilon, available, best)
-                print("Chosen Action: ", a)
+                #print("Chosen Action: ", a)
                 
                 # if the next sell is cogs, and it is the first time we visit them append it to visited and move one
                 if a in cogs_cells:
@@ -371,22 +371,22 @@ class RobotEnv:
             s = a
             
             # update Q:
-            print('Old Q Value: ',Q[s_old, a])
+            #print('Old Q Value: ',Q[s_old, a])
             Q[s_old, a] = Q[s_old, a] + alpha * (R[s_old, a] +
                                                 gamma * Q[s, :].max() -
                                                 Q[s_old, a])
             
-            print('New Q Value: ',Q[s_old, a])
+            #print('New Q Value: ',Q[s_old, a])
             # update total accumulated reward for this episode
-            print('current R: ', R[s_old, a])
+            #print('current R: ', R[s_old, a])
             R_tot += R[s_old, a]
-            print('current R_tot: ', R_tot)
+            #print('current R_tot: ', R_tot)
             
             
             if s == goal_state:
                 break
             
-            print('\n')
+            #print('\n')
         #print('R_tot ',R_tot)
         return Q, R_tot
     
