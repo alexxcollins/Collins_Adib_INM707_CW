@@ -105,7 +105,7 @@ class RobotEnv:
     def max_episodes(self):
         return self._max_episodes
     
-    @max_steps.setter
+    @max_episodes.setter
     def max_episodes(self, max_episodes):
         self._max_episodes= max_episodes
      
@@ -136,6 +136,13 @@ class RobotEnv:
     def rewards(self):
         return self._rewards
     
+    @walls.setter
+    def rewards(self, rewards):
+        self._rewards = rewards
+        self._initialize_grid()
+        self._initialize_R_matrix()
+        self._initialize_Q_matrix()
+        
     @property
     def positions(self):
         return self._positions
@@ -184,11 +191,11 @@ class RobotEnv:
         for i in range(self._dims[0]):
             for j in range(self._dims[1]):
                 cell = i*self._dims[0] + j
-                if j != 5:
+                if j != self._dims[0]-1:
                     ones.append((cell, cell+1)) # move right unless agent is on right edge
-                if cell - 6 >= 0:
+                if cell - self._dims[1] >= 0:
                     ones.append((cell, cell-6)) # move up if not in top row
-                if cell + 6 < 36:
+                if cell + self._dims[0] < self._dims[0]*self._dims[1]:
                     ones.append((cell, cell+6)) # move down if cell not in bottom row
                 if j != 0:
                     ones.append((cell, cell-1)) # move left if not on left edge
@@ -373,22 +380,26 @@ class RobotEnv:
             # update total accumulated reward for this episode
             print('current R: ', R[s_old, a])
             R_tot += R[s_old, a]
+            print('current R_tot: ', R_tot)
             
             
             if s == goal_state:
                 break
             
             print('\n')
-            
+        #print('R_tot ',R_tot)
         return Q, R_tot
     
     # function to run Q learning algorithm
     def Q_learning(self, alpha, gamma, epsilon):
-        Q = self._Q
+        Q = self._Q # here we still changing the original Q because we're using call by refrence
         Rtot = np.array([])
+        #Rtot = []
         for episode in range(self.max_episodes):
             Q, r = self.__run_episode(Q, alpha, gamma, epsilon)
-            Rtot = np.concatenate((Rtot, np.array([r])))            
+            #Rtot.append(r)
+            Rtot = np.concatenate((Rtot, np.array([r])))
+            
         if epsilon > 0.5:
             epsilon *= 0.99999
         else:
