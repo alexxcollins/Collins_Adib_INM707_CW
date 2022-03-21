@@ -14,7 +14,7 @@ from matplotlib import pyplot as plt
 # This is a class for creating the Robot environement
 
 class RobotEnv:
-    
+
     # Constructor for initialization, takes as input the parameters of the  env such as start, end, rewards, positions...
     def __init__(self,
                  dims=(6,6),
@@ -36,22 +36,22 @@ class RobotEnv:
         self._positions = positions
         self._max_steps = max_steps
         self._max_episodes = max_episodes
-        
+
         # initialize the grid, R_matrix and Q_matrix
         self._initialize_grid()
         self._initialize_R_matrix()
         self._initialize_Q_matrix()
-        
+
         self.rng = np.random.default_rng(42)
-        
-    
+
+
     # getters and setters
-    
+
     # getter and setter for dims
     @property
     def dims(self):
         return self._dims
-    
+
     @dims.setter
     def dims(self, dims):
         # When changing the dims we have to re-initialize: grid, R, Q
@@ -59,94 +59,94 @@ class RobotEnv:
         self._initialize_grid()
         self._initialize_R_matrix()
         self._initialize_Q_matrix()
-        
-    
+
+
     # getter and setter for start
     @property
     def start(self):
         return self._start
-    
+
     @start.setter
     def start(self, start):
         self._start = start
-    
+
     # getter and setter for end
     @property
     def end(self):
         return self._end
-    
+
     @end.setter
     def end(self, end):
         self._end = end
-        
-    
+
+
     # getter and setter for tubes
     @property
     def tubes(self):
         return self._tubes
-    
+
     @tubes.setter
     def tubes(self, tubes):
         self._tubes = tubes
-        
-    
+
+
     # getter and setter for max steps
     @property
     def max_steps(self):
         return self._max_steps
-    
+
     @max_steps.setter
     def max_steps(self, max_steps):
         self._max_steps = max_steps
-        
-    
+
+
     # getter and setter for max episodes
     @property
     def max_episodes(self):
         return self._max_episodes
-    
+
     @max_episodes.setter
     def max_episodes(self, max_episodes):
         self._max_episodes= max_episodes
-     
-    
+
+
     # getter and setter for max walls
     @property
     def walls(self):
         return self._walls
-    
+
     @walls.setter
     def walls(self, walls):
         self._walls = walls
-     
+
     # some property with only getter, in other words the user can't modify those properties
     @property
     def grid(self):
         return self._grid
-    
+
     @property
     def R(self):
         return self._R
-    
+
     @property
     def Q(self):
         return self._Q
-    
+
     @property
     def rewards(self):
         return self._rewards
-    
+
     @walls.setter
     def rewards(self, rewards):
         self._rewards = rewards
         self._initialize_grid()
         self._initialize_R_matrix()
         self._initialize_Q_matrix()
-        
+
     @property
     def positions(self):
         return self._positions
-    
+
 
     # function to initialize the grid, the propose of the grid is for visualization
     def _initialize_grid(self):
@@ -155,18 +155,18 @@ class RobotEnv:
             for pos in self._positions[position]:
                 self._grid[pos[0], pos[1]] = self._rewards['r_'+position]
                 #print(position, ":", pos, ":", self._grid[pos[0], pos[1]])
-        
+
         self._grid[self._end[0], self._end[1]] = self._rewards['r_work']
         #print(self._grid)
-        
-    
+
+
     # initialize the rewards matrix
     def _initialize_R_matrix(self):
         d1 = self.dims[0]
         d2 = self.dims[1]
         self._R = np.empty((d1*d2,d1*d2))
         self._R.fill(np.nan) # Fastest way to initilize R matrix
-        
+
         # call some methods instead to write all the function here, more cleaner and better for debuging
         self.__fillPossibleActions()
         self.__initializeTunnels()
@@ -175,15 +175,15 @@ class RobotEnv:
         self.__initializeCroissants()
         self.__initializeGoalPoint()
         self.__initializeWalls()
-        
-    
+
+
     # helper function, used in initialization methods
     def move_to(self, l, cell):
             for i in [-self._dims[0], -1, 1, self._dims[0]]:
                 if cell + i < self._dims[0]*self._dims[1]:
                     l.append((cell + i, cell))
             return l
-        
+
     # function to fill all the possible moves
     def __fillPossibleActions(self):
         # All moves where reward is -1 for action. Generate programmatically cos writing by hand is tedious
@@ -200,16 +200,16 @@ class RobotEnv:
                 if j != 0:
                     ones.append((cell, cell-1)) # move left if not on left edge
                 ones.append((cell, cell)) # staying still is possible, why not?
-        
+
         ones = tuple(zip(*ones))
         self._R[ones] = self._rewards['r_time']
-        
+
         # the propose of this loop is to remove the option if staying in the same cell
         for i in range(self._dims[0]):
             for j in range(self._dims[1]):
                 cell = i*self._dims[0] + j
                 self._R[(cell,cell)] = np.nan
-        
+
     # initialize the goal rewards
     def __initializeGoalPoint(self):
         end_cell = self._end[0]*self._dims[0] + self._end[1]
@@ -217,8 +217,8 @@ class RobotEnv:
         ends.append([end_cell, end_cell])
         ends = tuple(zip(*ends))
         self._R[ends] = self._rewards['r_work']
-        
-    
+
+
     # initialize the Tunnels
     def __initializeTunnels(self):
         tubes_cells = []
@@ -232,21 +232,21 @@ class RobotEnv:
         for cell in tubes_cells.copy():
             #print(cell)
             tubes_cells.append((cell[1], cell[0]))
-        
+
         tubes_cells = tuple(zip(*tubes_cells))
         self._R[tubes_cells] = self._rewards['r_time']
-        
-    
+
+
     # initialize the Crogs rewards
     def __initializeCrogs(self):
         cogs = []
         for cog in self._positions['cogs']:
             cogs = self.move_to(cogs, cog[0]*self._dims[0]+cog[1])
-            
+
         cogs = tuple(zip(*cogs))
         self._R[cogs] = self._rewards['r_cogs']
-        
-    
+
+
     # initialize the Ponds rewards
     def __initializePonds(self):
         # don't fall in the pond!
@@ -256,26 +256,26 @@ class RobotEnv:
             p = pond[0]*self._dims[0]+pond[1]
             ponds = self.move_to(ponds, p)
             ponds.extend([(p,p)])
-        
+
         #print(ponds)
-        
+
         ponds = tuple(zip(*ponds))
         self._R[ponds] = self._rewards['r_pond']
-        
-    
+
+
     # initialize the Croissant rewards
     def __initializeCroissants(self):
         croissants = []
         for croissant in self._positions['croissant']:
             c = croissant[0]*self._dims[0]+croissant[1]
             croissants = self.move_to(croissants, c)
-        
+
         #print(croissants)
-        
+
         croissants = tuple(zip(*croissants))
         self._R[croissants] = self._rewards['r_croissant']
-        
-    
+
+
     # finally, construct the walls
     def __initializeWalls(self):
         for wall in self._walls:
@@ -286,21 +286,21 @@ class RobotEnv:
             wall_in_matrix = (cell0, cell1)
             #print(wall_in_matrix)
             self._R[wall_in_matrix] = np.nan
-            
-            
-    
+
+
+
     # display the matrix as pandas dataframe
     def display_matrix(self, matrix, start=None, end=None):
         pd.set_option("display.max_columns", None)
         display(pd.DataFrame(matrix).loc[start:end, start:end])
-        
-    
+
+
     # initialize the Q matrix with the same shape as R matrix
     def _initialize_Q_matrix(self):
         self._Q = np.zeros(self._R.shape)
-        
-    
-    # function to run over only one eposide, takes as input alpha, gamma and epsilon
+
+
+    # function to run over only one episode, takes as input alpha, gamma and epsilon
     def __run_episode(self, Q, alpha, gamma, epsilon):
         R_tot = 0
         #print(self._start)
@@ -310,16 +310,16 @@ class RobotEnv:
         R = self._R
         #print("Starting Point: ", s)
         #print("End Point: ", goal_state)
-        
-        # some listes to keep track of visisted cogs and croissant cells
+
+        # some lists to keep track of visited cogs and croissant cells
         # to prevent the agent from re-visit them in the same episode to collect resources
-        cogs_visisted = []
-        croissant_visisted = []
-                
+        cogs_visited = []
+        croissant_visited = []
+
         cogs_cells = [cog_position[0]*self._dims[0]+cog_position[1] for cog_position in self.positions['cogs']]
-        
+
         croissant_cells = [croissant_position[0]*self._dims[0]+croissant_position[1] for croissant_position in self.positions['croissant']]
-           
+
         #print('cogs_cells: ', cogs_cells, type(cogs_cells))
         #print('croissant_cells: ', croissant_cells, type(cogs_cells))
         for i in range(self._max_steps):
@@ -328,7 +328,7 @@ class RobotEnv:
             available, best = self.__get_actions(R, Q, s)
             #print('Available actions: ', available)
             #print("Best actions: ",best)
-            
+
             # update states:
             # loop to avoid re visit the same crogs and croissant
             move = False
@@ -336,83 +336,180 @@ class RobotEnv:
                 # chosse an action first
                 a = self.__get_greedy_action(epsilon, available, best)
                 #print("Chosen Action: ", a)
-                
+
                 # if the next sell is cogs, and it is the first time we visit them append it to visited and move one
                 if a in cogs_cells:
-                    if a not in cogs_visisted:
-                        #print(cogs_visisted, a)
-                        cogs_visisted.append(a)
+                    if a not in cogs_visited:
+                        #print(cogs_visited, a)
+                        cogs_visited.append(a)
                         move = True
                     '''
                     else:
                         available.remove(a)
                         best.remove(a)
                         continue
-                    ''' 
-                        
+                    '''
+
                 # same thing here
                 if a in croissant_cells:
-                    if a not in croissant_visisted:
-                        #print(croissant_visisted, a)
-                        croissant_visisted.append(a)
+                    if a not in croissant_visited:
+                        #print(croissant_visited, a)
+                        croissant_visited.append(a)
                         move = True
                     '''
                     else:
                         available.remove(a)
                         best.remove(a)
                         continue
-                    ''' 
+                    '''
                 else:
                     move = True
-                
-            
-            #print('Move')        
+
+
+            #print('Move')
             s_old = s
             s = a
-            
+
             # update Q:
             #print('Old Q Value: ',Q[s_old, a])
             print('i:',i, Q[s, :])
             print('max: ',Q[s, :].max())
-            
+
             Q[s_old, a] = Q[s_old, a] + alpha * (R[s_old, a] +
                                                 gamma * Q[s, :].max() -
                                                 Q[s_old, a])
-            
+
             print('New Q Value: ',Q[s_old, a])
             # update total accumulated reward for this episode
             print('current R: ', R[s_old, a])
             R_tot += R[s_old, a]
             print('current R_tot: ', R_tot)
-            
-            
+
+
             if s == goal_state:
                 break
-            
+
             print('\n')
-        #print('R_tot ',R_tot)
         return Q, R_tot
-    
+
     # function to run Q learning algorithm
+    # off-policy
+    # greedy policy
     def Q_learning(self, alpha, gamma, epsilon):
-        Q = self._Q.copy() # here we still changing the original Q because we're using call by refrence
+        Q = self._Q.copy()
         Rtot = np.array([])
         #Rtot = []
         for episode in range(self.max_episodes):
             Q, r = self.__run_episode(Q, alpha, gamma, epsilon)
             #Rtot.append(r)
             Rtot = np.concatenate((Rtot, np.array([r])))
-            
+
         if epsilon > 0.5:
             epsilon *= 0.99999
         else:
             epsilon *= 0.9999
-            
+
         return Q, Rtot
-        
-    
+
+
+    def __run_episode_sarsa(self, Q, alpha, gamma, epsilon):
+        R_tot = 0
+        #print(self._start)
+        s = self._start[0]*self._dims[0]+self._start[1]
+        goal_state = self._end[0]*self._dims[0]+self._end[1]
+        R = self._R
+
+        # some lists to keep track of visited cogs and croissant cells
+        # to prevent the agent from re-visit them in the same episode to collect resources
+        cogs_visited = []
+        croissant_visited = []
+
+        cogs_cells = [cog_position[0]*self._dims[0]+cog_position[1] for cog_position in self.positions['cogs']]
+
+        croissant_cells = [croissant_position[0]*self._dims[0]+croissant_position[1] for croissant_position in self.positions['croissant']]
+
+        for i in range(self._max_steps):
+            # actions selection
+            available, best = self.__get_actions(R, Q, s)
+
+            # update states:
+            # loop to avoid re visit the same crogs and croissant
+            move = False
+            while not move:
+                # chosse an action first
+                a = self.__get_greedy_action(epsilon, available, best)
+
+                # if the next sell is cogs, and it is the first time we visit them append it to visited and move one
+                if a in cogs_cells:
+                    if a not in cogs_visited:
+                        #print(cogs_visited, a)
+                        cogs_visited.append(a)
+                        move = True
+                    '''
+                    else:
+                        available.remove(a)
+                        best.remove(a)
+                        continue
+                    '''
+
+                # same thing here
+                if a in croissant_cells:
+                    if a not in croissant_visited:
+                        #print(croissant_visited, a)
+                        croissant_visited.append(a)
+                        move = True
+                    '''
+                    else:
+                        available.remove(a)
+                        best.remove(a)
+                        continue
+                    '''
+                else:
+                    move = True
+
+
+            s_old = s
+            s = a
+            _available, _best = self.__get_actions(R, Q, s)
+            _a = self.__get_greedy_action(epsilon, _available, _best)
+            Q[s_old, a] = Q[s_old, a] + alpha * (R[s_old, a] +
+                                                gamma * Q[s, _a] -
+                                                Q[s_old, a])
+
+            # update total accumulated reward for this episode
+            R_tot += R[s_old, a]
+            if s == goal_state:
+                break
+
+            print('\n')
+        return Q, R_tot
+
+
+    '''
+    function to run SARSA learning algorithm
+    SARSA stands for State-Action-Reward-State-Action
+    on-policy
+    e-greedy policy
+    '''
+    def SARSA_learning(self, alpha, gamma, epsilon):
+        Q = self._Q.copy()
+        Rtot = np.array([])
+        # Rtot = []
+        for episode in range(self.max_episodes):
+            Q, r = self.__run_episode_sarsa(Q, alpha, gamma, epsilon)
+            # Rtot.append(r)
+            Rtot = np.concatenate((Rtot, np.array([r])))
+
+        if epsilon > 0.5:
+            epsilon *= 0.99999
+        else:
+            epsilon *= 0.9999
+
+        return Q, Rtot
+
     def __get_actions(self, R, Q, s):
-        """Returns best and all available actions as lists
+        """
+        Returns best and all available actions as lists
         """
         available = np.where(~np.isnan(R[s]))[0]
         q_vals = [Q[s,a] for a in available]
@@ -422,9 +519,10 @@ class RobotEnv:
         best = best.tolist()
         return available, best
 
-        
+
     def __get_greedy_action(self, epsilon, available, best):
-        """Given epsilon, and available and best actions,
+        """
+        Given epsilon, and available and best actions,
         Pick an appropriate action.
         """
         if self.rng.uniform() > epsilon:
