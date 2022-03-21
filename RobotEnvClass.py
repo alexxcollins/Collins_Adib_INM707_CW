@@ -8,6 +8,7 @@ Created on Tue Mar  1 23:15:26 2022
 import numpy as np
 import pandas as pd
 from abc import ABC, abstractmethod
+import random
 
 
 # This is a class for creating the Robot environment
@@ -284,14 +285,14 @@ class RobotEnv(ABC):
 
     # function to run over only one episode, takes as input alpha, gamma and epsilon
     @abstractmethod
-    def __run_episode(self, Q, alpha, gamma, epsilon):
+    def run_episode(self, Q, alpha, gamma, epsilon):
         pass
 
     @abstractmethod
     def learn(self, alpha, gamma, epsilon):
         pass
 
-    def __get_actions(self, R, Q, s):
+    def _get_actions(self, R, Q, s):
         """
         Returns best and all available actions as lists
         """
@@ -303,7 +304,7 @@ class RobotEnv(ABC):
         best = best.tolist()
         return available, best
 
-    def __get_greedy_action(self, epsilon, available, best):
+    def _get_greedy_action(self, epsilon, available, best):
         """
         Given epsilon, and available and best actions,
         Pick an appropriate action.
@@ -329,8 +330,7 @@ class Q_Learning(RobotEnv):
                  max_steps=1000,
                  max_episodes=1000,
                  ):
-        super().__init__(self,
-                         dims,
+        super().__init__(dims,
                          rewards,
                          start,
                          end,
@@ -341,7 +341,7 @@ class Q_Learning(RobotEnv):
                          max_episodes,
                          )
 
-    def __run_episode(self, Q, alpha, gamma, epsilon):
+    def run_episode(self, Q, alpha, gamma, epsilon):
 
         R_tot = 0
         # print(self._start)
@@ -364,14 +364,14 @@ class Q_Learning(RobotEnv):
 
         for i in range(self._max_steps):
             # actions selection
-            available, best = self.__get_actions(R, Q, s)
+            available, best = self._get_actions(R, Q, s)
 
             # update states:
             # loop to avoid re visit the same crogs and croissant
             move = False
             while not move:
                 # chosse an action first
-                a = self.__get_greedy_action(epsilon, available, best)
+                a = self._get_greedy_action(epsilon, available, best)
 
                 # if the next sell is cogs, and it is the first time we visit them append it to visited and move one
                 if a in cogs_cells:
@@ -426,7 +426,7 @@ class Q_Learning(RobotEnv):
         Rtot = np.array([])
         # Rtot = []
         for episode in range(self.max_episodes):
-            Q, r = self.__run_episode(Q, alpha, gamma, epsilon)
+            Q, r = self.run_episode(Q, alpha, gamma, epsilon)
             # Rtot.append(r)
             Rtot = np.concatenate((Rtot, np.array([r])))
 
@@ -452,8 +452,7 @@ class SARSA_learning(RobotEnv):
                  max_steps=1000,
                  max_episodes=1000,
                  ):
-        super().__init__(self,
-                         dims,
+        super().__init__(dims,
                          rewards,
                          start,
                          end,
@@ -464,7 +463,7 @@ class SARSA_learning(RobotEnv):
                          max_episodes,
                          )
 
-    def __run_episode(self, Q, alpha, gamma, epsilon):
+    def run_episode(self, Q, alpha, gamma, epsilon):
         R_tot = 0
         # print(self._start)
         s = self._start[0] * self._dims[0] + self._start[1]
@@ -483,14 +482,14 @@ class SARSA_learning(RobotEnv):
 
         for i in range(self._max_steps):
             # actions selection
-            available, best = self.__get_actions(R, Q, s)
+            available, best = self._get_actions(R, Q, s)
 
             # update states:
             # loop to avoid re visit the same crogs and croissant
             move = False
             while not move:
                 # chosse an action first
-                a = self.__get_greedy_action(epsilon, available, best)
+                a = self._get_greedy_action(epsilon, available, best)
 
                 # if the next sell is cogs, and it is the first time we visit them append it to visited and move one
                 if a in cogs_cells:
@@ -522,8 +521,8 @@ class SARSA_learning(RobotEnv):
 
             s_old = s
             s = a
-            _available, _best = self.__get_actions(R, Q, s)
-            _a = self.__get_greedy_action(epsilon, _available, _best)
+            _available, _best = self._get_actions(R, Q, s)
+            _a = self._get_greedy_action(epsilon, _available, _best)
             Q[s_old, a] = Q[s_old, a] + alpha * (R[s_old, a] +
                                                  gamma * Q[s, _a] -
                                                  Q[s_old, a])
@@ -533,7 +532,6 @@ class SARSA_learning(RobotEnv):
             if s == goal_state:
                 break
 
-            print('\n')
         return Q, R_tot
 
     '''
@@ -548,7 +546,135 @@ class SARSA_learning(RobotEnv):
         Rtot = np.array([])
         # Rtot = []
         for episode in range(self.max_episodes):
-            Q, r = self.__run_episode(Q, alpha, gamma, epsilon)
+            Q, r = self.run_episode(Q, alpha, gamma, epsilon)
+            # Rtot.append(r)
+            Rtot = np.concatenate((Rtot, np.array([r])))
+
+        if epsilon > 0.5:
+            epsilon *= 0.99999
+        else:
+            epsilon *= 0.9999
+
+        return Q, Rtot
+
+    
+class Q_Learning_Randomness(RobotEnv):
+
+    def __init__(self,
+                 dims=(6, 6),
+                 rewards={'r_time': -1, 'r_pond': -15, 'r_croissant': 200, 'r_cogs': 200, 'r_work': 15},
+                 start=(1, 0),
+                 end=(5, 5),
+                 positions={'pond': [(2, 4), (4, 3)], 'cogs': [(5, 2)], 'croissant': [(1, 4)]},
+                 tubes=[[(0, 0), (3, 5)], [(1, 2), (4, 1)]],
+                 walls=[[(0, 2), (0, 3)], [(1, 2), (1, 3)], [(2, 2), (2, 3)], [(1, 5), (2, 5)], [(3, 0), (4, 0)],
+                        [(3, 1), (4, 1)], [(5, 2), (5, 3)]],
+                 max_steps=1000,
+                 max_episodes=1000,
+                 ):
+        super().__init__(dims,
+                         rewards,
+                         start,
+                         end,
+                         positions,
+                         tubes,
+                         walls,
+                         max_steps,
+                         max_episodes,
+                         )
+
+    def run_episode(self, Q, alpha, gamma, epsilon):
+
+        R_tot = 0
+        # print(self._start)
+        s = self._start[0] * self._dims[0] + self._start[1]
+        goal_state = self._end[0] * self._dims[0] + self._end[1]
+        # Q = self._Q
+        R = self._R
+        # print("Starting Point: ", s)
+        # print("End Point: ", goal_state)
+
+        # some lists to keep track of visited cogs and croissant cells
+        # to prevent the agent from re-visit them in the same episode to collect resources
+        cogs_visited = []
+        croissant_visited = []
+
+        cogs_cells = [cog_position[0] * self._dims[0] + cog_position[1] for cog_position in self.positions['cogs']]
+
+        croissant_cells = [croissant_position[0] * self._dims[0] + croissant_position[1] for croissant_position in
+                           self.positions['croissant']]
+
+        for i in range(self._max_steps):
+            # actions selection
+            available, best = self._get_actions(R, Q, s)
+
+            # update states:
+            # loop to avoid re visit the same crogs and croissant
+            move = False
+            while not move:
+                # chosse an action first
+                a = self._get_greedy_action(epsilon, available, best)
+
+                # if the next sell is cogs, and it is the first time we visit them append it to visited and move one
+                if a in cogs_cells:
+                    if a not in cogs_visited:
+                        # print(cogs_visited, a)
+                        cogs_visited.append(a)
+                        move = True
+                    '''
+                    else:
+                        available.remove(a)
+                        best.remove(a)
+                        continue
+                    '''
+
+                # same thing here
+                if a in croissant_cells:
+                    if a not in croissant_visited:
+                        # print(croissant_visited, a)
+                        croissant_visited.append(a)
+                        move = True
+                    '''
+                    else:
+                        available.remove(a)
+                        best.remove(a)
+                        continue
+                    '''
+                else:
+                    move = True
+
+            s_old = s
+            s = a
+
+            # First get the available actions from rhe current state
+            _available, _best = self._get_actions(R, Q, s)
+            # calculate the probability distribution accroding to the Q-values
+            sum_list = sum(_available)
+            propa = [round((value/sum_list) * 100) for value in _available]
+            # Choise the next state non-deterministically
+            non_deterministic_action = random.choices(_available, weights=propa)
+            # update Q:
+            Q[s_old, a] = Q[s_old, a] + alpha * (R[s_old, a] +
+                                                 gamma * non_deterministic_action[0] -
+                                                 Q[s_old, a])
+
+            # update total accumulated reward for this episode
+            R_tot += R[s_old, a]
+
+            if s == goal_state:
+                break
+            
+        return Q, R_tot
+
+    # function to run Q learning algorithm
+    # off-policy
+    # greedy policy
+    def learn(self, alpha, gamma, epsilon):
+        Q = self._Q.copy()
+        Rtot = np.array([])
+        # Rtot = []
+        for episode in range(self.max_episodes):
+            Q, r = self.run_episode(Q, alpha, gamma, epsilon)
             # Rtot.append(r)
             Rtot = np.concatenate((Rtot, np.array([r])))
 
