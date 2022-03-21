@@ -372,27 +372,30 @@ class RobotEnv:
             
             # update Q:
             #print('Old Q Value: ',Q[s_old, a])
+            print('i:',i, Q[s, :])
+            print('max: ',Q[s, :].max())
+            
             Q[s_old, a] = Q[s_old, a] + alpha * (R[s_old, a] +
                                                 gamma * Q[s, :].max() -
                                                 Q[s_old, a])
             
-            #print('New Q Value: ',Q[s_old, a])
+            print('New Q Value: ',Q[s_old, a])
             # update total accumulated reward for this episode
-            #print('current R: ', R[s_old, a])
+            print('current R: ', R[s_old, a])
             R_tot += R[s_old, a]
-            #print('current R_tot: ', R_tot)
+            print('current R_tot: ', R_tot)
             
             
             if s == goal_state:
                 break
             
-            #print('\n')
+            print('\n')
         #print('R_tot ',R_tot)
         return Q, R_tot
     
     # function to run Q learning algorithm
     def Q_learning(self, alpha, gamma, epsilon):
-        Q = self._Q # here we still changing the original Q because we're using call by refrence
+        Q = self._Q.copy() # here we still changing the original Q because we're using call by refrence
         Rtot = np.array([])
         #Rtot = []
         for episode in range(self.max_episodes):
