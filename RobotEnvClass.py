@@ -237,17 +237,17 @@ class RobotEnv(ABC):
 
     # function to fill all the possible moves
     def __fillPossibleActions(self):
-        # All moves where reward is -1 for action. Generate programmatically cos writing by hand is tedious
+        # All moves where reward is .self_rewards['r_time'] for action.
         ones = []
         for i in range(self._dims[0]):
             for j in range(self._dims[1]):
                 cell = i * self._dims[0] + j
                 if j != self._dims[0] - 1:
                     ones.append((cell, cell + 1))  # move right unless agent is on right edge
-                if cell - self._dims[1] >= 0:
-                    ones.append((cell, cell - 6))  # move up if not in top row
-                if cell + self._dims[0] < self._dims[0] * self._dims[1]:
-                    ones.append((cell, cell + 6))  # move down if cell not in bottom row
+                if i != self._dims[1] - 1:
+                    ones.append((cell, cell + self._dims[0]))  # move up if not in top row
+                if i != 0:
+                    ones.append((cell, cell - self._dims[0]))  # move down not in bottom row
                 if j != 0:
                     ones.append((cell, cell - 1))  # move left if not on left edge
                 ones.append((cell, cell))  # staying still is possible, why not?
