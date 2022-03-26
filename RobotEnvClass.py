@@ -163,7 +163,7 @@ class RobotEnv(ABC):
         # call some methods instead to write all the function here, more cleaner and better for debuging
         self.__fillPossibleActions()
         self.__initializeTunnels()
-        self.__initializeCrogs()
+        self.__initializeCogs()
         self.__initializePonds()
         self.__initializeCroissants()
         self.__initializeGoalPoint()
@@ -227,8 +227,8 @@ class RobotEnv(ABC):
         tubes_cells = tuple(zip(*tubes_cells))
         self._R[tubes_cells] = self._rewards['r_time']
 
-    # initialize the Crogs rewards
-    def __initializeCrogs(self):
+    # initialize the Cogs rewards
+    def __initializeCogs(self):
         cogs = []
         for cog in self._positions['cogs']:
             cogs = self.move_to(cogs, cog[0] * self._dims[0] + cog[1])
@@ -367,7 +367,7 @@ class Q_Learning(RobotEnv):
             available, best = self._get_actions(R, Q, s)
 
             # update states:
-            # loop to avoid re visit the same crogs and croissant
+            # loop to avoid re visit the same cogs and croissant
             move = False
             while not move:
                 # chosse an action first
@@ -485,7 +485,7 @@ class SARSA_learning(RobotEnv):
             available, best = self._get_actions(R, Q, s)
 
             # update states:
-            # loop to avoid re visit the same crogs and croissant
+            # loop to avoid re visit the same cogs and croissant
             move = False
             while not move:
                 # chosse an action first
@@ -609,7 +609,7 @@ class Q_Learning_Randomness(RobotEnv):
             available, best = self._get_actions(R, Q, s)
 
             # update states:
-            # loop to avoid re visit the same crogs and croissant
+            # loop to avoid re visit the same cogs and croissant
             move = False
             while not move:
                 # chosse an action first
