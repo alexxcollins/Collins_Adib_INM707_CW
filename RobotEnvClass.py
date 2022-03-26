@@ -197,7 +197,7 @@ class RobotEnv(ABC):
         
     # function to join strings in rows and add key
     def _create_viz_string(self, rows):
-        s = '\n' + .join([''.join(r) + '\n' for r in rows])
+        s = '\n' + ''.join([''.join(r) + '\n' for r in rows])
         s += '\n'
         s += 'key:\n'
         s += 'S  = start location for agent\n'
