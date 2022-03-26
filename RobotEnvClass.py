@@ -229,10 +229,19 @@ class RobotEnv(ABC):
         self.__initializeWalls()
 
     # helper function, used in initialization methods
-    def move_to(self, l, cell):
-        for i in [-self._dims[0], -1, 1, self._dims[0]]:
-            if cell + i < self._dims[0] * self._dims[1]:
-                l.append((cell + i, cell))
+    def move_to(self, l, feature):
+        """ creates a list of tuples with cell agent is moving to and cell agent is moving from"""
+        cell = feature[0] * self._dims[0] + feature[1]
+        
+        if feature[0] > 0:  # cell not on top edge
+            l.append((cell, cell - self._dims[0]))
+        if feature[0] < self._dims[0] - 1:  # cell not on bottom edge
+            l.append((cell, cell + self._dims[0]))
+        if feature[1] > 0:  # cell not left hand edge
+            l.append((cell, cell - 1))
+        if feature[1] < self._dims[1] - 1:  # cell not on right hand edge
+            l.append((cell, cell + 1))
+
         return l
 
     # function to fill all the possible moves
@@ -264,7 +273,7 @@ class RobotEnv(ABC):
     # initialize the goal rewards
     def __initializeGoalPoint(self):
         end_cell = self._end[0] * self._dims[0] + self._end[1]
-        ends = self.move_to([], end_cell)
+        ends = self.move_to([], self._end)
         ends.append([end_cell, end_cell])
         ends = tuple(zip(*ends))
         self._R[ends] = self._rewards['r_work']
@@ -290,7 +299,7 @@ class RobotEnv(ABC):
     def __initializeCogs(self):
         cogs = []
         for cog in self._positions['cogs']:
-            cogs = self.move_to(cogs, cog[0] * self._dims[0] + cog[1])
+            cogs = self.move_to(cogs, cog)
 
         cogs = tuple(zip(*cogs))
         self._R[cogs] = self._rewards['r_cogs']
@@ -302,7 +311,7 @@ class RobotEnv(ABC):
         ponds = []
         for pond in self._positions['pond']:
             p = pond[0] * self._dims[0] + pond[1]
-            ponds = self.move_to(ponds, p)
+            ponds = self.move_to(ponds, pond)
             ponds.extend([(p, p)])
 
         # print(ponds)
@@ -314,10 +323,7 @@ class RobotEnv(ABC):
     def __initializeCroissants(self):
         croissants = []
         for croissant in self._positions['croissant']:
-            c = croissant[0] * self._dims[0] + croissant[1]
-            croissants = self.move_to(croissants, c)
-
-        # print(croissants)
+            croissants = self.move_to(croissants, croissant)
 
         croissants = tuple(zip(*croissants))
         self._R[croissants] = self._rewards['r_croissant']
@@ -746,3 +752,4 @@ class Q_Learning_Randomness(RobotEnv):
             epsilon *= 0.9999
 
         return Q, Rtot
+
