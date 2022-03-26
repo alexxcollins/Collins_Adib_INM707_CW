@@ -219,7 +219,7 @@ class RobotEnv(ABC):
         self._R = np.empty((d1 * d2, d1 * d2))
         self._R.fill(np.nan)  # Fastest way to initilize R matrix
 
-        # call some methods instead to write all the function here, more cleaner and better for debuging
+        # call some methods instead to write all the function here, cleaner and better for debuging
         self.__fillPossibleActions()
         self.__initializeTunnels()
         self.__initializeCogs()
@@ -325,12 +325,9 @@ class RobotEnv(ABC):
     # finally, construct the walls
     def __initializeWalls(self):
         for wall in self._walls:
-            # print(wall)
             cell0 = wall[0][0] * self._dims[0] + wall[0][1]
             cell1 = wall[1][0] * self._dims[0] + wall[1][1]
-            # print(cell0, ":", cell1)
             wall_in_matrix = (cell0, cell1)
-            # print(wall_in_matrix)
             self._R[wall_in_matrix] = np.nan
 
     # display the matrix as pandas dataframe
