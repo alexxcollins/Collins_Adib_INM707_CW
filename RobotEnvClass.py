@@ -27,6 +27,7 @@ class RobotEnv(ABC):
                         [(3, 1), (4, 1)], [(5, 2), (5, 3)]],
                  max_steps=1000,
                  max_episodes=1000,
+                 random_seed=42
                  ):
         self._dims = dims
         self._rewards = rewards
@@ -43,7 +44,9 @@ class RobotEnv(ABC):
         self._initialize_R_matrix()
         self._initialize_Q_matrix()
 
-        self.rng = np.random.default_rng(42)
+        self.rng = np.random.default_rng(random_seed)
+        
+    
 
     # getters and setters
 
@@ -329,6 +332,7 @@ class Q_Learning(RobotEnv):
                         [(3, 1), (4, 1)], [(5, 2), (5, 3)]],
                  max_steps=1000,
                  max_episodes=1000,
+                 random_seed=42
                  ):
         super().__init__(dims,
                          rewards,
@@ -339,6 +343,7 @@ class Q_Learning(RobotEnv):
                          walls,
                          max_steps,
                          max_episodes,
+                         random_seed
                          )
 
     def run_episode(self, Q, alpha, gamma, epsilon):
@@ -451,6 +456,7 @@ class SARSA_learning(RobotEnv):
                         [(3, 1), (4, 1)], [(5, 2), (5, 3)]],
                  max_steps=1000,
                  max_episodes=1000,
+                 random_seed=42
                  ):
         super().__init__(dims,
                          rewards,
@@ -461,6 +467,7 @@ class SARSA_learning(RobotEnv):
                          walls,
                          max_steps,
                          max_episodes,
+                         random_seed
                          )
 
     def run_episode(self, Q, alpha, gamma, epsilon):
@@ -571,6 +578,7 @@ class Q_Learning_Randomness(RobotEnv):
                         [(3, 1), (4, 1)], [(5, 2), (5, 3)]],
                  max_steps=1000,
                  max_episodes=1000,
+                 random_seed=42
                  ):
         super().__init__(dims,
                          rewards,
@@ -581,6 +589,7 @@ class Q_Learning_Randomness(RobotEnv):
                          walls,
                          max_steps,
                          max_episodes,
+                         random_seed
                          )
 
     def run_episode(self, Q, alpha, gamma, epsilon):
