@@ -46,8 +46,6 @@ class RobotEnv(ABC):
 
         self.rng = np.random.default_rng(random_seed)
         
-    
-
     # getters and setters
 
     # getter and setter for dims
@@ -155,6 +153,64 @@ class RobotEnv(ABC):
 
         self._grid[self._end[0], self._end[1]] = self._rewards['r_work']
         # print(self._grid)
+        
+    # function to print a grid visualisation for the task   
+    def visualise_world(self):
+        W = self._dims[0]*2 + 1
+        H = self._dims[1]*2 + 1
+        # create empty grid
+        rows = [['   '] * W for r in range(H)]
+        
+        # add dots for spaces where agent can move
+        for i in range(W):
+            for j in range(H):
+                if i%2 == 1 and j%2 ==1:
+                    rows[i][j] = '.  '
+        
+        # border round the grid
+        rows[0] = ['X  ' for c in rows[0]]
+        rows[H-1] = ['X  ' for c in rows[W-1]]
+        for i in range(1, H-1):
+            rows[i][0] = 'X  '
+            rows[i][W-1] = 'X  '
+        
+        # insert walls
+        for w in self._walls:
+            rows[(w[0][0]+w[1][0])+1][w[0][1]+w[1][1]+1] = 'X  '
+            
+        # insert tubes
+        for n, t in enumerate(self._tubes):
+            rows[t[0][0]*2+1][t[0][1]*2+1] = 'T{} '.format(n)
+            rows[t[1][0]*2+1][t[1][1]*2+1] = 'T{} '.format(n)
+            
+        # insert start, end
+        for label, p in [('S  ', self._start), ('E  ', self._end)]:
+            rows[p[0]*2+1][p[1]*2+1] = label
+            
+        # insert features
+        symbol = {'pond':'P  ', 'cogs':'G  ', 'croissant':'C  '}
+        for key in self._positions:
+            for p in self._positions[key]:
+                rows[p[0]*2+1][p[1]*2+1] = symbol[key]
+        
+        return self._create_viz_string(rows)
+        
+    # function to join strings in rows and add key
+    def _create_viz_string(self, rows):
+        s = '\n' + .join([''.join(r) + '\n' for r in rows])
+        s += '\n'
+        s += 'key:\n'
+        s += 'S  = start location for agent\n'
+        s += 'E  = end location for agent\n'
+        s += '.  = empty cell\n'
+        s += 'X  = boundary or wall beetween cells\n'
+        s += 'Tn = nth Tube start or end. Agent can travel between the two Tn in one time step\n'
+        s += 'P  = pond: falling in is cold and wet\n'
+        s += 'G  = cog: agent is rewarded for collecting\n'
+        s += 'C  = croissant: agent is rewarded for collecting\n'
+        
+        
+        return s
 
     # initialize the rewards matrix
     def _initialize_R_matrix(self):
