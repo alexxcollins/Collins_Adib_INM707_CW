@@ -327,7 +327,7 @@ class RobotEnv(ABC):
         for wall in self._walls:
             cell0 = wall[0][0] * self._dims[0] + wall[0][1]
             cell1 = wall[1][0] * self._dims[0] + wall[1][1]
-            wall_in_matrix = (cell0, cell1)
+            wall_in_matrix = ((cell0, cell1),(cell1, cell0))
             self._R[wall_in_matrix] = np.nan
 
     # display the matrix as pandas dataframe
