@@ -227,6 +227,7 @@ class RobotEnv(ABC):
         self.__initializeCroissants()
         self.__initializeGoalPoint()
         self.__initializeWalls()
+        
 
     # helper function, used in initialization methods
     def move_to(self, l, feature):
@@ -234,13 +235,13 @@ class RobotEnv(ABC):
         cell = feature[0] * self._dims[1] + feature[1]
         
         if feature[0] > 0:  # cell not on top edge
-            l.append((cell, cell - self._dims[1]))
+            l.append((cell - self._dims[1], cell))
         if feature[0] < self._dims[0] - 1:  # cell not on bottom edge
-            l.append((cell, cell + self._dims[1]))
+            l.append((cell + self._dims[1], cell))
         if feature[1] > 0:  # cell not left hand edge
-            l.append((cell, cell - 1))
+            l.append((cell - 1, cell))
         if feature[1] < self._dims[1] - 1:  # cell not on right hand edge
-            l.append((cell, cell + 1))
+            l.append((cell + 1, cell))
 
         return l
 
@@ -252,13 +253,13 @@ class RobotEnv(ABC):
             for j in range(self._dims[1]): # iterating across columns
                 cell = i * self._dims[1] + j
                 if j != self._dims[1] - 1:
-                    ones.append((cell, cell + 1))  # move right unless agent is on right edge
+                    ones.append((cell + 1, cell))  # move right unless agent is on right edge
                 if i != self._dims[0] - 1:
-                    ones.append((cell, cell + self._dims[1]))  # move up if not in top row
+                    ones.append((cell + self._dims[1], cell)) # move up if not in top row
                 if i != 0:
-                    ones.append((cell, cell - self._dims[1]))  # move down not in bottom row
+                    ones.append((cell - self._dims[1], cell))  # move down not in bottom row
                 if j != 0:
-                    ones.append((cell, cell - 1))  # move left if not on left edge
+                    ones.append((cell - 1, cell))  # move left if not on left edge
                 ones.append((cell, cell))  # staying still is possible, why not?
 
         ones = tuple(zip(*ones))
@@ -284,7 +285,7 @@ class RobotEnv(ABC):
             tubes_cells.append(tuple(tubes_cell))
         for cell in tubes_cells.copy():
             # print(cell)
-            tubes_cells.append((cell[1], cell[0]))
+            tubes_cells.append((cell[0], cell[1]))
 
         tubes_cells = tuple(zip(*tubes_cells))
         self._R[tubes_cells] = self._rewards['r_time']
@@ -331,7 +332,7 @@ class RobotEnv(ABC):
     # display the matrix as pandas dataframe
     def display_matrix(self, matrix, start=None, end=None):
         pd.set_option("display.max_columns", None)
-        display(pd.DataFrame(matrix.T).loc[start:end, start:end])
+        display(pd.DataFrame(matrix).loc[start:end, start:end])
 
     # initialize the Q matrix with the same shape as R matrix
     def _initialize_Q_matrix(self):
@@ -401,8 +402,8 @@ class Q_Learning(RobotEnv):
 
         R_tot = 0
         # print(self._start)
-        s = self._start[0] * self._dims[0] + self._start[1]
-        goal_state = self._end[0] * self._dims[0] + self._end[1]
+        s = self._start[0] * self._dims[1] + self._start[1]
+        goal_state = self._end[0] * self._dims[1] + self._end[1]
         # Q = self._Q
         R = self._R
         # print("Starting Point: ", s)
@@ -413,9 +414,9 @@ class Q_Learning(RobotEnv):
         cogs_visited = []
         croissant_visited = []
 
-        cogs_cells = [cog_position[0] * self._dims[0] + cog_position[1] for cog_position in self.positions['cogs']]
+        cogs_cells = [cog_position[0] * self._dims[1] + cog_position[1] for cog_position in self.positions['cogs']]
 
-        croissant_cells = [croissant_position[0] * self._dims[0] + croissant_position[1] for croissant_position in
+        croissant_cells = [croissant_position[0] * self._dims[1] + croissant_position[1] for croissant_position in
                            self.positions['croissant']]
 
         for i in range(self._max_steps):
@@ -426,10 +427,10 @@ class Q_Learning(RobotEnv):
             # loop to avoid re visit the same cogs and croissant
             move = False
             while not move:
-                # chosse an action first
+                # choose an action first
                 a = self._get_greedy_action(epsilon, available, best)
 
-                # if the next sell is cogs, and it is the first time we visit them append it to visited and move one
+                # if the next cell is cogs, and it is the first time we visit them append it to visited and move one
                 if a in cogs_cells:
                     if a not in cogs_visited:
                         # print(cogs_visited, a)
@@ -461,7 +462,6 @@ class Q_Learning(RobotEnv):
             s = a
 
             # update Q:
-
             Q[s_old, a] = Q[s_old, a] + alpha * (R[s_old, a] +
                                                  gamma * Q[s, :].max() -
                                                  Q[s_old, a])
@@ -524,8 +524,8 @@ class SARSA_learning(RobotEnv):
     def run_episode(self, Q, alpha, gamma, epsilon):
         R_tot = 0
         # print(self._start)
-        s = self._start[0] * self._dims[0] + self._start[1]
-        goal_state = self._end[0] * self._dims[0] + self._end[1]
+        s = self._start[0] * self._dims[1] + self._start[1]
+        goal_state = self._end[0] * self._dims[1] + self._end[1]
         R = self._R
 
         # some lists to keep track of visited cogs and croissant cells
@@ -533,9 +533,9 @@ class SARSA_learning(RobotEnv):
         cogs_visited = []
         croissant_visited = []
 
-        cogs_cells = [cog_position[0] * self._dims[0] + cog_position[1] for cog_position in self.positions['cogs']]
+        cogs_cells = [cog_position[0] * self._dims[1] + cog_position[1] for cog_position in self.positions['cogs']]
 
-        croissant_cells = [croissant_position[0] * self._dims[0] + croissant_position[1] for croissant_position in
+        croissant_cells = [croissant_position[0] * self._dims[1] + croissant_position[1] for croissant_position in
                            self.positions['croissant']]
 
         for i in range(self._max_steps):
@@ -647,8 +647,8 @@ class Q_Learning_Randomness(RobotEnv):
 
         R_tot = 0
         # print(self._start)
-        s = self._start[0] * self._dims[0] + self._start[1]
-        goal_state = self._end[0] * self._dims[0] + self._end[1]
+        s = self._start[0] * self._dims[1] + self._start[1]
+        goal_state = self._end[0] * self._dims[1] + self._end[1]
         # Q = self._Q
         R = self._R
         # print("Starting Point: ", s)
@@ -659,9 +659,9 @@ class Q_Learning_Randomness(RobotEnv):
         cogs_visited = []
         croissant_visited = []
 
-        cogs_cells = [cog_position[0] * self._dims[0] + cog_position[1] for cog_position in self.positions['cogs']]
+        cogs_cells = [cog_position[0] * self._dims[1] + cog_position[1] for cog_position in self.positions['cogs']]
 
-        croissant_cells = [croissant_position[0] * self._dims[0] + croissant_position[1] for croissant_position in
+        croissant_cells = [croissant_position[0] * self._dims[1] + croissant_position[1] for croissant_position in
                            self.positions['croissant']]
 
         for i in range(self._max_steps):
