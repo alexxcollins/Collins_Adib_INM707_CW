@@ -485,30 +485,6 @@ class Q_Learning(RobotEnv):
             if a in cogs_cells or a in croissant_cells:
                 R[s_old, a] = self._rewards['r_time']
                 
-#             if a in cogs_cells or a in croissant_cells:
-#                 s_old = s
-#                 s = a
-
-#                 # update Q:
-#                 Q[s_old, a] = Q[s_old, a] + alpha * (R[s_old, a] +
-#                                                      gamma * Q[s, :].max() -
-#                                                      Q[s_old, a])
-
-#                 # update total accumulated reward for this episode
-#                 R_tot += R[s_old, a]
-#                 R[s_old, a] = self._rewards['r_time']
-#             else:
-#                 s_old = s
-#                 s = a
-
-#                 # update Q:
-#                 Q[s_old, a] = Q[s_old, a] + alpha * (R[s_old, a] +
-#                                                      gamma * Q[s, :].max() -
-#                                                      Q[s_old, a])
-
-#                 # update total accumulated reward for this episode
-#                 R_tot += R[s_old, a]
-
             if s == goal_state:
                 break
 
@@ -517,24 +493,27 @@ class Q_Learning(RobotEnv):
     # function to run Q learning algorithm
     # off-policy
     # greedy policy
+    # we want to record the path agent followed on each episode which we do with a jagged array
+    
     def learn(self, alpha, gamma, epsilon):
         Q = self._Q.copy()
-        Rtot = np.array([])
-        ######################
-        # need to add history
-        ######################
+        Rtot = np.empty(shape=self.max_episodes)
+        a_hist = np.empty(shape=(self.max_episodes), dtype=np.object_)
+        Q_hist = np.empty(shape=(self.max_episodes, self._Q.shape[0], self._Q.shape[1]))
         
         for episode in range(self.max_episodes):
             Q, r, action_hist = self.run_episode(Q, alpha, gamma, epsilon)
             # Rtot.append(r)
-            Rtot = np.concatenate((Rtot, np.array([r])))
+            Rtot[episode] = r
+            a_hist[episode] = action_hist
+            Q_hist[episode, :, :] = Q
 
-        if epsilon > 0.5:
-            epsilon *= 0.99999
-        else:
-            epsilon *= 0.9999
+            if epsilon > 0.5:
+                epsilon *= 0.99999
+            else:
+                epsilon *= 0.9999
 
-        return Q, Rtot
+        return a_hist, Q_hist, Rtot
 
 
 class SARSA_learning(RobotEnv):
@@ -651,10 +630,10 @@ class SARSA_learning(RobotEnv):
             # Rtot.append(r)
             Rtot = np.concatenate((Rtot, np.array([r])))
 
-        if epsilon > 0.5:
-            epsilon *= 0.99999
-        else:
-            epsilon *= 0.9999
+            if epsilon > 0.5:
+                epsilon *= 0.99999
+            else:
+                epsilon *= 0.9999
 
         return Q, Rtot
 
@@ -781,10 +760,10 @@ class Q_Learning_Randomness(RobotEnv):
             # Rtot.append(r)
             Rtot = np.concatenate((Rtot, np.array([r])))
 
-        if epsilon > 0.5:
-            epsilon *= 0.99999
-        else:
-            epsilon *= 0.9999
+            if epsilon > 0.5:
+                epsilon *= 0.99999
+            else:
+                epsilon *= 0.9999
 
         return Q, Rtot
 
