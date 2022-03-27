@@ -403,6 +403,7 @@ class Q_Learning(RobotEnv):
         R_tot = 0
         # print(self._start)
         s = self._start[0] * self._dims[1] + self._start[1]
+        action_hist = np.array([s])
         goal_state = self._end[0] * self._dims[1] + self._end[1]
         # Q = self._Q
         R = self._R
@@ -429,6 +430,7 @@ class Q_Learning(RobotEnv):
             while not move:
                 # choose an action first
                 a = self._get_greedy_action(epsilon, available, best)
+                action_hist = np.concatenate((action_hist, a))
 
                 # if the next cell is cogs, and it is the first time we visit them append it to visited and move one
                 if a in cogs_cells:
@@ -472,7 +474,7 @@ class Q_Learning(RobotEnv):
             if s == goal_state:
                 break
 
-        return Q, R_tot
+        return Q, R_tot, action_hist
 
     # function to run Q learning algorithm
     # off-policy
@@ -480,9 +482,12 @@ class Q_Learning(RobotEnv):
     def learn(self, alpha, gamma, epsilon):
         Q = self._Q.copy()
         Rtot = np.array([])
-        # Rtot = []
+        ######################
+        # need to add history
+        ######################
+        
         for episode in range(self.max_episodes):
-            Q, r = self.run_episode(Q, alpha, gamma, epsilon)
+            Q, r, action_hist = self.run_episode(Q, alpha, gamma, epsilon)
             # Rtot.append(r)
             Rtot = np.concatenate((Rtot, np.array([r])))
 
