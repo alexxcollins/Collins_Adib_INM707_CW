@@ -29,7 +29,7 @@ class RobotEnv(ABC):
                  max_episodes=1000,
                  random_seed=42
                  ):
-        self._dims = dims
+        self._dims = dims # first number is height, second is width
         self._rewards = rewards
         self._start = start
         self._end = end
@@ -156,8 +156,8 @@ class RobotEnv(ABC):
         
     # function to print a grid visualisation for the task   
     def visualise_world(self):
-        W = self._dims[0]*2 + 1
-        H = self._dims[1]*2 + 1
+        W = self._dims[1]*2 + 1
+        H = self._dims[0]*2 + 1
         # create empty grid
         rows = [['   '] * W for r in range(H)]
         
@@ -165,11 +165,11 @@ class RobotEnv(ABC):
         for i in range(W):
             for j in range(H):
                 if i%2 == 1 and j%2 ==1:
-                    rows[i][j] = '.  '
+                    rows[j][i] = '.  '
         
         # border round the grid
         rows[0] = ['X  ' for c in rows[0]]
-        rows[H-1] = ['X  ' for c in rows[W-1]]
+        rows[H-1] = ['X  ' for c in rows[H-1]]
         for i in range(1, H-1):
             rows[i][0] = 'X  '
             rows[i][W-1] = 'X  '
@@ -231,12 +231,12 @@ class RobotEnv(ABC):
     # helper function, used in initialization methods
     def move_to(self, l, feature):
         """ creates a list of tuples with cell agent is moving to and cell agent is moving from"""
-        cell = feature[0] * self._dims[0] + feature[1]
+        cell = feature[0] * self._dims[1] + feature[1]
         
         if feature[0] > 0:  # cell not on top edge
-            l.append((cell, cell - self._dims[0]))
+            l.append((cell, cell - self._dims[1]))
         if feature[0] < self._dims[0] - 1:  # cell not on bottom edge
-            l.append((cell, cell + self._dims[0]))
+            l.append((cell, cell + self._dims[1]))
         if feature[1] > 0:  # cell not left hand edge
             l.append((cell, cell - 1))
         if feature[1] < self._dims[1] - 1:  # cell not on right hand edge
@@ -248,15 +248,15 @@ class RobotEnv(ABC):
     def __fillPossibleActions(self):
         # All moves where reward is .self_rewards['r_time'] for action.
         ones = []
-        for i in range(self._dims[0]):
-            for j in range(self._dims[1]):
-                cell = i * self._dims[0] + j
-                if j != self._dims[0] - 1:
+        for i in range(self._dims[0]): # iterating over rows
+            for j in range(self._dims[1]): # iterating across columns
+                cell = i * self._dims[1] + j
+                if j != self._dims[1] - 1:
                     ones.append((cell, cell + 1))  # move right unless agent is on right edge
-                if i != self._dims[1] - 1:
-                    ones.append((cell, cell + self._dims[0]))  # move up if not in top row
+                if i != self._dims[0] - 1:
+                    ones.append((cell, cell + self._dims[1]))  # move up if not in top row
                 if i != 0:
-                    ones.append((cell, cell - self._dims[0]))  # move down not in bottom row
+                    ones.append((cell, cell - self._dims[1]))  # move down not in bottom row
                 if j != 0:
                     ones.append((cell, cell - 1))  # move left if not on left edge
                 ones.append((cell, cell))  # staying still is possible, why not?
@@ -266,7 +266,7 @@ class RobotEnv(ABC):
 
     # initialize the goal rewards
     def __initializeGoalPoint(self):
-        end_cell = self._end[0] * self._dims[0] + self._end[1]
+        end_cell = self._end[0] * self._dims[1] + self._end[1]
         ends = self.move_to([], self._end)
         ends.append([end_cell, end_cell])
         ends = tuple(zip(*ends))
@@ -278,7 +278,7 @@ class RobotEnv(ABC):
         for tubes in self._tubes:
             tubes_cell = []
             for tube in tubes:
-                cell_nb = tube[0] * self._dims[0] + tube[1]
+                cell_nb = tube[0] * self._dims[1] + tube[1]
                 tubes_cell.append(cell_nb)
             # print(tubes_cell)
             tubes_cells.append(tuple(tubes_cell))
@@ -304,11 +304,9 @@ class RobotEnv(ABC):
         # print(self._positions['pond'])
         ponds = []
         for pond in self._positions['pond']:
-            p = pond[0] * self._dims[0] + pond[1]
+            p = pond[0] * self._dims[1] + pond[1]
             ponds = self.move_to(ponds, pond)
             ponds.extend([(p, p)])
-
-        # print(ponds)
 
         ponds = tuple(zip(*ponds))
         self._R[ponds] = self._rewards['r_pond']
@@ -325,15 +323,15 @@ class RobotEnv(ABC):
     # finally, construct the walls
     def __initializeWalls(self):
         for wall in self._walls:
-            cell0 = wall[0][0] * self._dims[0] + wall[0][1]
-            cell1 = wall[1][0] * self._dims[0] + wall[1][1]
+            cell0 = wall[0][0] * self._dims[1] + wall[0][1]
+            cell1 = wall[1][0] * self._dims[1] + wall[1][1]
             wall_in_matrix = ((cell0, cell1),(cell1, cell0))
             self._R[wall_in_matrix] = np.nan
 
     # display the matrix as pandas dataframe
     def display_matrix(self, matrix, start=None, end=None):
         pd.set_option("display.max_columns", None)
-        display(pd.DataFrame(matrix).loc[start:end, start:end])
+        display(pd.DataFrame(matrix.T).loc[start:end, start:end])
 
     # initialize the Q matrix with the same shape as R matrix
     def _initialize_Q_matrix(self):
