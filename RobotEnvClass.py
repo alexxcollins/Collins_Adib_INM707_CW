@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Mar  1 23:15:26 2022
-
-@author: Khaliladib
-"""
-
 import numpy as np
 import pandas as pd
 from abc import ABC, abstractmethod
@@ -86,6 +79,10 @@ class RobotEnv(ABC):
     @tubes.setter
     def tubes(self, tubes):
         self._tubes = tubes
+        self._initialize_grid()
+        self._initialize_R_matrix()
+        self._initialize_Q_matrix()
+        self.__initializeTunnels()
 
     # getter and setter for max steps
     @property
@@ -200,7 +197,8 @@ class RobotEnv(ABC):
         for i in range(self._dims[0]):
             for j in range(self._dims[1]):
                 cell = i * self._dims[0] + j
-                self._R[(cell, cell)] = np.nan
+                # self._R[(cell, cell)] = np.nan
+                self._R[(cell, cell)] = 0.1
 
     # initialize the goal rewards
     def __initializeGoalPoint(self):
@@ -271,8 +269,10 @@ class RobotEnv(ABC):
             cell1 = wall[1][0] * self._dims[0] + wall[1][1]
             # print(cell0, ":", cell1)
             wall_in_matrix = (cell0, cell1)
+            wall_in_matrix_reserve = (cell1, cell0)
             # print(wall_in_matrix)
             self._R[wall_in_matrix] = np.nan
+            self._R[wall_in_matrix_reserve] = np.nan
 
     # display the matrix as pandas dataframe
     def display_matrix(self, matrix, start=None, end=None):
@@ -348,7 +348,7 @@ class Q_Learning(RobotEnv):
         s = self._start[0] * self._dims[0] + self._start[1]
         goal_state = self._end[0] * self._dims[0] + self._end[1]
         # Q = self._Q
-        R = self._R
+        R = self._R.copy()
         # print("Starting Point: ", s)
         # print("End Point: ", goal_state)
 
@@ -362,6 +362,8 @@ class Q_Learning(RobotEnv):
         croissant_cells = [croissant_position[0] * self._dims[0] + croissant_position[1] for croissant_position in
                            self.positions['croissant']]
 
+        # print(cogs_cells, croissant_cells)
+
         for i in range(self._max_steps):
             # actions selection
             available, best = self._get_actions(R, Q, s)
@@ -369,6 +371,7 @@ class Q_Learning(RobotEnv):
             # update states:
             # loop to avoid re visit the same crogs and croissant
             move = False
+            """
             while not move:
                 # chosse an action first
                 a = self._get_greedy_action(epsilon, available, best)
@@ -400,18 +403,36 @@ class Q_Learning(RobotEnv):
                     '''
                 else:
                     move = True
+            """
+            a = self._get_greedy_action(epsilon, available, best)
+            if a in cogs_cells or a in croissant_cells:
+                s_old = s
+                s = a
 
-            s_old = s
-            s = a
+                # update Q:
 
-            # update Q:
+                Q[s_old, a] = Q[s_old, a] + alpha * (R[s_old, a] +
+                                                     gamma * Q[s, :].max() -
+                                                     Q[s_old, a])
 
-            Q[s_old, a] = Q[s_old, a] + alpha * (R[s_old, a] +
-                                                 gamma * Q[s, :].max() -
-                                                 Q[s_old, a])
+                # update total accumulated reward for this episode
+                R_tot += R[s_old, a]
+                # print(f'R[{s_old}, {a}] = {R[s_old, a]}')
+                R[s_old, a] = self._rewards['r_time']
+                # print(R[s_old, a])
 
-            # update total accumulated reward for this episode
-            R_tot += R[s_old, a]
+            else:
+                s_old = s
+                s = a
+
+                # update Q:
+
+                Q[s_old, a] = Q[s_old, a] + alpha * (R[s_old, a] +
+                                                     gamma * Q[s, :].max() -
+                                                     Q[s_old, a])
+
+                # update total accumulated reward for this episode
+                R_tot += R[s_old, a]
 
             if s == goal_state:
                 break
@@ -557,7 +578,7 @@ class SARSA_learning(RobotEnv):
 
         return Q, Rtot
 
-    
+
 class Q_Learning_Randomness(RobotEnv):
 
     def __init__(self,
@@ -650,7 +671,7 @@ class Q_Learning_Randomness(RobotEnv):
             _available, _best = self._get_actions(R, Q, s)
             # calculate the probability distribution accroding to the Q-values
             sum_list = sum(_available)
-            propa = [round((value/sum_list) * 100) for value in _available]
+            propa = [round((value / sum_list) * 100) for value in _available]
             # Choise the next state non-deterministically
             non_deterministic_action = random.choices(_available, weights=propa)
             # update Q:
@@ -663,7 +684,7 @@ class Q_Learning_Randomness(RobotEnv):
 
             if s == goal_state:
                 break
-            
+
         return Q, R_tot
 
     # function to run Q learning algorithm
