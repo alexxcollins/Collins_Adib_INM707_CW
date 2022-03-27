@@ -415,7 +415,7 @@ class Q_Learning(RobotEnv):
         s = self._start[0] * self._dims[1] + self._start[1]
         goal_state = self._end[0] * self._dims[1] + self._end[1]
         # Q = self._Q
-        R = self._R
+        R = self._R.copy()
         # print("Starting Point: ", s)
         # print("End Point: ", goal_state)
 
