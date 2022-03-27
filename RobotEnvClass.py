@@ -87,6 +87,10 @@ class RobotEnv(ABC):
     @tubes.setter
     def tubes(self, tubes):
         self._tubes = tubes
+        self._initialize_grid()
+        self._initialize_R_matrix()
+        self._initialize_Q_matrix()
+        self.__initializeTunnels()
 
     # getter and setter for max steps
     @property
@@ -265,6 +269,12 @@ class RobotEnv(ABC):
         ones = tuple(zip(*ones))
         self._R[ones] = self._rewards['r_time']
 
+        for i in range(self._dims[0]):
+            for j in range(self._dims[1]):
+                cell = i * self._dims[0] + j
+                # self._R[(cell, cell)] = np.nan
+                self._R[(cell, cell)] = 0.1
+
     # initialize the goal rewards
     def __initializeGoalPoint(self):
         end_cell = self._end[0] * self._dims[1] + self._end[1]
@@ -426,6 +436,7 @@ class Q_Learning(RobotEnv):
             # update states:
             # loop to avoid re visit the same cogs and croissant
             move = False
+            """
             while not move:
                 # choose an action first
                 a = self._get_greedy_action(epsilon, available, best)
@@ -457,17 +468,31 @@ class Q_Learning(RobotEnv):
                     '''
                 else:
                     move = True
+            """
+            a = self._get_greedy_action(epsilon, available, best)
+            if a in cogs_cells or a in croissant_cells:
+                s_old = s
+                s = a
 
-            s_old = s
-            s = a
+                # update Q:
+                Q[s_old, a] = Q[s_old, a] + alpha * (R[s_old, a] +
+                                                     gamma * Q[s, :].max() -
+                                                     Q[s_old, a])
 
-            # update Q:
-            Q[s_old, a] = Q[s_old, a] + alpha * (R[s_old, a] +
-                                                 gamma * Q[s, :].max() -
-                                                 Q[s_old, a])
+                # update total accumulated reward for this episode
+                R_tot += R[s_old, a]
+                R[s_old, a] = self._rewards['r_time']
+            else:
+                s_old = s
+                s = a
 
-            # update total accumulated reward for this episode
-            R_tot += R[s_old, a]
+                # update Q:
+                Q[s_old, a] = Q[s_old, a] + alpha * (R[s_old, a] +
+                                                     gamma * Q[s, :].max() -
+                                                     Q[s_old, a])
+
+                # update total accumulated reward for this episode
+                R_tot += R[s_old, a]
 
             if s == goal_state:
                 break
