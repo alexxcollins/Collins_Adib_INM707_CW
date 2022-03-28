@@ -426,7 +426,9 @@ class Q_Learning(RobotEnv):
         R_tot = 0
         # print(self._start)
         s = self._start[0] * self._dims[1] + self._start[1]
-        action_hist = np.array([s])
+        #action_hist = np.array([s])
+        #action_hist = [s]
+        action_hist = 0
         goal_state = self._end[0] * self._dims[1] + self._end[1]
         # Q = self._Q
         R = self._R.copy()
@@ -485,6 +487,8 @@ class Q_Learning(RobotEnv):
                     move = True
             """
             a = self._get_greedy_action(epsilon, available, best)
+            #action_hist.append(a)
+            action_hist += 1
             s_old = s
             s = a
 
