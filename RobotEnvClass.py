@@ -30,7 +30,7 @@ class RobotEnv(ABC):
                  max_episodes=1000,
                  random_seed=42
                  ):
-        self._dims = dims # first number is height, second is width
+        self._dims = dims  # first number is height, second is width
         self._rewards = rewards
         self._start = start
         self._end = end
@@ -47,7 +47,7 @@ class RobotEnv(ABC):
         self._initialize_Q_matrix()
 
         self.rng = np.random.default_rng(random_seed)
-        
+
     # getters and setters
 
     # getter and setter for dims
@@ -168,48 +168,48 @@ class RobotEnv(ABC):
 
         self._grid[self._end[0], self._end[1]] = self._rewards['r_work']
         # print(self._grid)
-        
+
     # function to print a grid visualisation for the task   
     def visualise_world(self):
-        W = self._dims[1]*2 + 1
-        H = self._dims[0]*2 + 1
+        W = self._dims[1] * 2 + 1
+        H = self._dims[0] * 2 + 1
         # create empty grid
         rows = [['   '] * W for r in range(H)]
-        
+
         # add dots for spaces where agent can move
         for i in range(W):
             for j in range(H):
-                if i%2 == 1 and j%2 ==1:
+                if i % 2 == 1 and j % 2 == 1:
                     rows[j][i] = '.  '
-        
+
         # border round the grid
         rows[0] = ['X  ' for c in rows[0]]
-        rows[H-1] = ['X  ' for c in rows[H-1]]
-        for i in range(1, H-1):
+        rows[H - 1] = ['X  ' for c in rows[H - 1]]
+        for i in range(1, H - 1):
             rows[i][0] = 'X  '
-            rows[i][W-1] = 'X  '
-        
+            rows[i][W - 1] = 'X  '
+
         # insert walls
         for w in self._walls:
-            rows[(w[0][0]+w[1][0])+1][w[0][1]+w[1][1]+1] = 'X  '
-            
+            rows[(w[0][0] + w[1][0]) + 1][w[0][1] + w[1][1] + 1] = 'X  '
+
         # insert tubes
         for n, t in enumerate(self._tubes):
-            rows[t[0][0]*2+1][t[0][1]*2+1] = 'T{} '.format(n)
-            rows[t[1][0]*2+1][t[1][1]*2+1] = 'T{} '.format(n)
-            
+            rows[t[0][0] * 2 + 1][t[0][1] * 2 + 1] = 'T{} '.format(n)
+            rows[t[1][0] * 2 + 1][t[1][1] * 2 + 1] = 'T{} '.format(n)
+
         # insert start, end
         for label, p in [('S  ', self._start), ('E  ', self._end)]:
-            rows[p[0]*2+1][p[1]*2+1] = label
-            
+            rows[p[0] * 2 + 1][p[1] * 2 + 1] = label
+
         # insert features
-        symbol = {'pond':'P  ', 'cogs':'G  ', 'croissant':'C  '}
+        symbol = {'pond': 'P  ', 'cogs': 'G  ', 'croissant': 'C  '}
         for key in self._positions:
             for p in self._positions[key]:
-                rows[p[0]*2+1][p[1]*2+1] = symbol[key]
-        
+                rows[p[0] * 2 + 1][p[1] * 2 + 1] = symbol[key]
+
         return self._create_viz_string(rows)
-        
+
     # function to join strings in rows and add key
     def _create_viz_string(self, rows):
         s = '\n' + ''.join([''.join(r) + '\n' for r in rows])
@@ -223,8 +223,7 @@ class RobotEnv(ABC):
         s += 'P  = pond: falling in is cold and wet\n'
         s += 'G  = cog: agent is rewarded for collecting\n'
         s += 'C  = croissant: agent is rewarded for collecting\n'
-        
-        
+
         return s
 
     # initialize the rewards matrix
@@ -242,13 +241,12 @@ class RobotEnv(ABC):
         self.__initializeCroissants()
         self.__initializeGoalPoint()
         self.__initializeWalls()
-        
 
     # helper function, used in initialization methods
     def move_to(self, l, feature):
         """ creates a list of tuples with cell agent is moving to and cell agent is moving from"""
         cell = feature[0] * self._dims[1] + feature[1]
-        
+
         if feature[0] > 0:  # cell not on top edge
             l.append((cell - self._dims[1], cell))
         if feature[0] < self._dims[0] - 1:  # cell not on bottom edge
@@ -264,13 +262,13 @@ class RobotEnv(ABC):
     def __fillPossibleActions(self):
         # All moves where reward is .self_rewards['r_time'] for action.
         ones = []
-        for i in range(self._dims[0]): # iterating over rows
-            for j in range(self._dims[1]): # iterating across columns
+        for i in range(self._dims[0]):  # iterating over rows
+            for j in range(self._dims[1]):  # iterating across columns
                 cell = i * self._dims[1] + j
                 if j != self._dims[1] - 1:
                     ones.append((cell + 1, cell))  # move right unless agent is on right edge
                 if i != self._dims[0] - 1:
-                    ones.append((cell + self._dims[1], cell)) # move up if not in top row
+                    ones.append((cell + self._dims[1], cell))  # move up if not in top row
                 if i != 0:
                     ones.append((cell - self._dims[1], cell))  # move down not in bottom row
                 if j != 0:
@@ -279,6 +277,12 @@ class RobotEnv(ABC):
 
         ones = tuple(zip(*ones))
         self._R[ones] = self._rewards['r_time']
+        for i in range(self._dims[0]):
+            for j in range(self._dims[1]):
+                cell = i * self._dims[0] + j
+                self._R[(cell, cell)] = self.rewards['r_time']
+                #self._R[(cell, cell)] = np.nan
+                #self._R[(cell, cell)] = 0
 
     # initialize the goal rewards
     def __initializeGoalPoint(self):
@@ -341,7 +345,7 @@ class RobotEnv(ABC):
         for wall in self._walls:
             cell0 = wall[0][0] * self._dims[1] + wall[0][1]
             cell1 = wall[1][0] * self._dims[1] + wall[1][1]
-            wall_in_matrix = ((cell0, cell1),(cell1, cell0))
+            wall_in_matrix = ((cell0, cell1), (cell1, cell0))
             self._R[wall_in_matrix] = np.nan
 
     # display the matrix as pandas dataframe
@@ -361,6 +365,11 @@ class RobotEnv(ABC):
     @abstractmethod
     def learn(self, alpha, gamma, epsilon):
         pass
+
+    # method to get adjacent cells
+    def _get_adjacent_cells(self, cell):
+        cells = np.where([~np.isnan(self.R[cell,])])[1]
+        return cells
 
     def _get_actions(self, R, Q, s):
         """
@@ -420,9 +429,9 @@ class Q_Learning(RobotEnv):
         R_tot = 0
         # print(self._start)
         s = self._start[0] * self._dims[1] + self._start[1]
-        #action_hist = np.array([s])
+        # action_hist = np.array([s])
         action_hist = [s]
-        #action_hist = 0
+        # action_hist = 0
         goal_state = self._end[0] * self._dims[1] + self._end[1]
         # Q = self._Q
         R = self._R.copy()
@@ -442,47 +451,9 @@ class Q_Learning(RobotEnv):
         for i in range(self._max_steps):
             # actions selection
             available, best = self._get_actions(R, Q, s)
-
-            # update states:
-            # loop to avoid re visit the same cogs and croissant
-            move = False
-            """
-            while not move:
-                # choose an action first
-                a = self._get_greedy_action(epsilon, available, best)
-                action_hist = np.concatenate((action_hist, a))
-
-                # if the next cell is cogs, and it is the first time we visit them append it to visited and move one
-                if a in cogs_cells:
-                    if a not in cogs_visited:
-                        # print(cogs_visited, a)
-                        cogs_visited.append(a)
-                        move = True
-                    '''
-                    else:
-                        available.remove(a)
-                        best.remove(a)
-                        continue
-                    '''
-
-                # same thing here
-                if a in croissant_cells:
-                    if a not in croissant_visited:
-                        # print(croissant_visited, a)
-                        croissant_visited.append(a)
-                        move = True
-                    '''
-                    else:
-                        available.remove(a)
-                        best.remove(a)
-                        continue
-                    '''
-                else:
-                    move = True
-            """
             a = self._get_greedy_action(epsilon, available, best)
             action_hist.append(a)
-            #action_hist += 1
+            # action_hist += 1
             s_old = s
             s = a
 
@@ -494,8 +465,10 @@ class Q_Learning(RobotEnv):
             # update total accumulated reward for this episode
             R_tot += R[s_old, a]
             if a in cogs_cells or a in croissant_cells:
-                R[s_old, a] = self._rewards['r_time']
-                
+                cells = self._get_adjacent_cells(a)
+                for cell in cells:
+                    R[cell, a] = self._rewards['r_time']
+
             if s == goal_state:
                 break
 
@@ -505,13 +478,13 @@ class Q_Learning(RobotEnv):
     # off-policy
     # greedy policy
     # we want to record the path agent followed on each episode which we do with a jagged array
-    
+
     def learn(self, alpha, gamma, epsilon):
         Q = self._Q.copy()
         Rtot = np.empty(shape=self.max_episodes)
         a_hist = np.empty(shape=(self.max_episodes), dtype=np.object_)
         Q_hist = np.empty(shape=(self.max_episodes, self._Q.shape[0], self._Q.shape[1]))
-        
+
         for episode in range(self.max_episodes):
             Q, r, action_hist = self.run_episode(Q, alpha, gamma, epsilon)
             # Rtot.append(r)
@@ -650,7 +623,7 @@ class SARSA_learning(RobotEnv):
 
         return Q, Rtot
 
-    
+
 class Q_Learning_Randomness(RobotEnv):
 
     def __init__(self,
@@ -747,7 +720,7 @@ class Q_Learning_Randomness(RobotEnv):
             _available, _best = self._get_actions(R, Q, s)
             # calculate the probability distribution accroding to the Q-values
             sum_list = sum(_available)
-            propa = [round((value/sum_list) * 100) for value in _available]
+            propa = [round((value / sum_list) * 100) for value in _available]
             # Choise the next state non-deterministically
             non_deterministic_action = random.choices(_available, weights=propa)
             # update Q:
@@ -760,7 +733,7 @@ class Q_Learning_Randomness(RobotEnv):
 
             if s == goal_state:
                 break
-            
+
         return Q, R_tot
 
     # function to run Q learning algorithm
@@ -781,4 +754,3 @@ class Q_Learning_Randomness(RobotEnv):
                 epsilon *= self.epsilon_decays['epsilon_decay2']
 
         return Q, Rtot
-
