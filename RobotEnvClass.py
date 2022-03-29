@@ -25,6 +25,7 @@ class RobotEnv(ABC):
                  tubes=[[(0, 0), (3, 5)], [(1, 2), (4, 1)]],
                  walls=[[(0, 2), (0, 3)], [(1, 2), (1, 3)], [(2, 2), (2, 3)], [(1, 5), (2, 5)], [(3, 0), (4, 0)],
                         [(3, 1), (4, 1)], [(5, 2), (5, 3)]],
+                 epsilon_decays={'epsilon_threshold': 0.5, 'epsilon_decay1': 0.99999, 'epsilon_decay2': 0.9999},
                  max_steps=1000,
                  max_episodes=1000,
                  random_seed=42
@@ -35,6 +36,7 @@ class RobotEnv(ABC):
         self._end = end
         self._tubes = tubes
         self._walls = walls
+        self._epsilon_decays = epsilon_decays
         self._positions = positions
         self._max_steps = max_steps
         self._max_episodes = max_episodes
@@ -118,6 +120,15 @@ class RobotEnv(ABC):
     @walls.setter
     def walls(self, walls):
         self._walls = walls
+
+    # getter and setter for epsilon_decays
+    @property
+    def epsilon_decays(self):
+        return self._epsilon_decays
+
+    @epsilon_decays.setter
+    def epsilon_decays(self, epsilon_decays):
+        self._epsilon_decays = epsilon_decays
 
     # some property with only getter, in other words the user can't modify those properties
     @property
@@ -273,7 +284,7 @@ class RobotEnv(ABC):
             for j in range(self._dims[1]):
                 cell = i * self._dims[0] + j
                 # self._R[(cell, cell)] = np.nan
-                self._R[(cell, cell)] = 0.1
+                self._R[(cell, cell)] = 0
 
     # initialize the goal rewards
     def __initializeGoalPoint(self):
@@ -392,6 +403,7 @@ class Q_Learning(RobotEnv):
                  tubes=[[(0, 0), (3, 5)], [(1, 2), (4, 1)]],
                  walls=[[(0, 2), (0, 3)], [(1, 2), (1, 3)], [(2, 2), (2, 3)], [(1, 5), (2, 5)], [(3, 0), (4, 0)],
                         [(3, 1), (4, 1)], [(5, 2), (5, 3)]],
+                 epsilon_decays={'epsilon_threshold': 0.5, 'epsilon_decay1': 0.99999, 'epsilon_decay2': 0.9999},
                  max_steps=1000,
                  max_episodes=1000,
                  random_seed=42
@@ -403,6 +415,7 @@ class Q_Learning(RobotEnv):
                          positions,
                          tubes,
                          walls,
+                         epsilon_decays,
                          max_steps,
                          max_episodes,
                          random_seed
@@ -413,7 +426,9 @@ class Q_Learning(RobotEnv):
         R_tot = 0
         # print(self._start)
         s = self._start[0] * self._dims[1] + self._start[1]
-        action_hist = np.array([s])
+        #action_hist = np.array([s])
+        action_hist = [s]
+        #action_hist = 0
         goal_state = self._end[0] * self._dims[1] + self._end[1]
         # Q = self._Q
         R = self._R.copy()
@@ -472,6 +487,8 @@ class Q_Learning(RobotEnv):
                     move = True
             """
             a = self._get_greedy_action(epsilon, available, best)
+            action_hist.append(a)
+            #action_hist += 1
             s_old = s
             s = a
 
@@ -508,10 +525,10 @@ class Q_Learning(RobotEnv):
             a_hist[episode] = action_hist
             Q_hist[episode, :, :] = Q
 
-            if epsilon > 0.5:
-                epsilon *= 0.99999
+            if epsilon > self.epsilon_decays['epsilon_threshold']:
+                epsilon *= self.epsilon_decays['epsilon_decay1']
             else:
-                epsilon *= 0.9999
+                epsilon *= self.epsilon_decays['epsilon_decay2']
 
         return a_hist, Q_hist, Rtot
 
@@ -527,6 +544,7 @@ class SARSA_learning(RobotEnv):
                  tubes=[[(0, 0), (3, 5)], [(1, 2), (4, 1)]],
                  walls=[[(0, 2), (0, 3)], [(1, 2), (1, 3)], [(2, 2), (2, 3)], [(1, 5), (2, 5)], [(3, 0), (4, 0)],
                         [(3, 1), (4, 1)], [(5, 2), (5, 3)]],
+                 epsilon_decays={'epsilon_threshold': 0.5, 'epsilon_decay1': 0.99999, 'epsilon_decay2': 0.9999},
                  max_steps=1000,
                  max_episodes=1000,
                  random_seed=42
@@ -538,6 +556,7 @@ class SARSA_learning(RobotEnv):
                          positions,
                          tubes,
                          walls,
+                         epsilon_decays,
                          max_steps,
                          max_episodes,
                          random_seed
@@ -630,10 +649,10 @@ class SARSA_learning(RobotEnv):
             # Rtot.append(r)
             Rtot = np.concatenate((Rtot, np.array([r])))
 
-            if epsilon > 0.5:
-                epsilon *= 0.99999
+            if epsilon > self.epsilon_decays['epsilon_threshold']:
+                epsilon *= self.epsilon_decays['epsilon_decay1']
             else:
-                epsilon *= 0.9999
+                epsilon *= self.epsilon_decays['epsilon_decay2']
 
         return Q, Rtot
 
@@ -649,6 +668,7 @@ class Q_Learning_Randomness(RobotEnv):
                  tubes=[[(0, 0), (3, 5)], [(1, 2), (4, 1)]],
                  walls=[[(0, 2), (0, 3)], [(1, 2), (1, 3)], [(2, 2), (2, 3)], [(1, 5), (2, 5)], [(3, 0), (4, 0)],
                         [(3, 1), (4, 1)], [(5, 2), (5, 3)]],
+                 epsilon_decays={'epsilon_threshold': 0.5, 'epsilon_decay1': 0.99999, 'epsilon_decay2': 0.9999},
                  max_steps=1000,
                  max_episodes=1000,
                  random_seed=42
@@ -660,6 +680,7 @@ class Q_Learning_Randomness(RobotEnv):
                          positions,
                          tubes,
                          walls,
+                         epsilon_decays,
                          max_steps,
                          max_episodes,
                          random_seed
@@ -760,10 +781,10 @@ class Q_Learning_Randomness(RobotEnv):
             # Rtot.append(r)
             Rtot = np.concatenate((Rtot, np.array([r])))
 
-            if epsilon > 0.5:
-                epsilon *= 0.99999
+            if epsilon > self.epsilon_decays['epsilon_threshold']:
+                epsilon *= self.epsilon_decays['epsilon_decay1']
             else:
-                epsilon *= 0.9999
+                epsilon *= self.epsilon_decays['epsilon_decay2']
 
         return Q, Rtot
 
