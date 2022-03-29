@@ -308,6 +308,8 @@ class RobotEnv(ABC):
 
         tubes_cells = tuple(zip(*tubes_cells))
         self._R[tubes_cells] = self._rewards['r_time']
+        
+        #chaging some code
 
     # initialize the Cogs rewards
     def __initializeCogs(self):
