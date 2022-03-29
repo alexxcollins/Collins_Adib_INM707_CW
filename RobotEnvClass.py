@@ -280,12 +280,6 @@ class RobotEnv(ABC):
         ones = tuple(zip(*ones))
         self._R[ones] = self._rewards['r_time']
 
-        for i in range(self._dims[0]):
-            for j in range(self._dims[1]):
-                cell = i * self._dims[0] + j
-                # self._R[(cell, cell)] = np.nan
-                self._R[(cell, cell)] = 0
-
     # initialize the goal rewards
     def __initializeGoalPoint(self):
         end_cell = self._end[0] * self._dims[1] + self._end[1]
