@@ -1,215 +1,150 @@
-# import libraries
 import pygame
 import random
+from enum import Enum
 from collections import namedtuple
 import numpy as np
 
-# initialize pygame
 pygame.init()
+font = pygame.font.Font(None, 25)
 
-direction = {
-    'RIGHT': 1,
-    'LEFT': 2,
-    'UP': 3,
-    'DOWN': 4
-}
+
+# font = pygame.font.SysFont('arial', 25)
+
+class Direction(Enum):
+    RIGHT = 1
+    LEFT = 2
+    UP = 3
+    DOWN = 4
+
+
+Point = namedtuple('Point', 'x, y')
+
 # rgb colors
 WHITE = (255, 255, 255)
-RED = (200,0,0)
+RED = (200, 0, 0)
 BLUE1 = (0, 0, 255)
 BLUE2 = (0, 100, 255)
-BLACK = (0,0,0)
+BLACK = (0, 0, 0)
 
-font = pygame.font.Font('comicsansms', 25)
+GREEN = (0, 153, 51)
+GREEN2 = (102, 255, 51)
 
-
-Point = namedtuple('Point', 'x', 'y')
-
-# defining colors
-black = pygame.Color(0, 0, 0)
-white = pygame.Color(255, 255, 255)
-red = pygame.Color(255, 0, 0)
-green = pygame.Color(0, 255, 0)
-blue = pygame.Color(0, 0, 255)
+BLOCK_SIZE = 20
+SPEED = 40
 
 
-class Game:
+class SnakeGameAI:
 
-    # constructor
     def __init__(self,
-                 width=500,
-                 height=500,
+                 width=640,
+                 height=480,
+                 window_title="Reinforcement Learning Snake",
                  block_size=20,
-                 speed=20,
-                 window_title="Reinforcement Learning Snake"):
-        """
-        Constructor of the snake game
-        :param width (int): width of the window
-        :param height (int): height of the window
-        :param block_size (int): size of the blocks on the screen
-        :param speed (int): speed of the game
-        :param window_title (str): Title of the window on the screen
-        """
-        self._width = width
-        self._height = height
-        self._block_size = block_size
-        self._speed = speed
-        self._window_title = window_title
-
-        # Display the game
-        self.display = pygame.display.set_mode((self._width, self._height))
-        pygame.display.set_caption(self._window_title)
-
-        self.clock = pygame.time.Clock()
-
-        self.direction = None
-        self.snake_head = None
+                 game_speed=40):
+        self.width = width
+        self.height = height
+        self.window_title = window_title
+        self.block_size = block_size
+        self.frame_iteration = None
+        self.rat = None
+        self.score = None
         self.snake_body = None
-        self.score = 0
-        self.rat_position = None
-        self.game_iteration = 0
+        self.snake_head = None
+        self.direction = None
 
+        self.game_speed = game_speed
+        # init display
+        self.display = pygame.display.set_mode((self.width, self.height))
+        pygame.display.set_caption(self.window_title)
+        self.clock = pygame.time.Clock()
         self.reset()
 
-    @property
-    def width(self):
-        return self._width
-
-    @width.setter
-    def width(self, width):
-        if width > 0:
-            self._width = width
-
-    @property
-    def height(self):
-        return self._height
-
-    @height.setter
-    def height(self, height):
-        if height > 0:
-            self._height = height
-
-    @property
-    def block_size(self):
-        return self._block_size
-
-    @block_size.setter
-    def block_size(self, block_size):
-        if block_size > 0:
-            self._block_size = block_size
-
-    @property
-    def speed(self):
-        return self._speed
-
-    @speed.setter
-    def speed(self, speed):
-        if speed > 0:
-            self._speed = speed
-
-    @property
-    def window_title(self):
-        return self._window_title
-
-    @window_title.setter
-    def window_title(self, window_title):
-        self._window_title = window_title
-
-    # method to reset the environment
     def reset(self):
-        # initialize the default game state
-        self.direction = direction['RIGHT']
-        self.snake_head = [self.width / 2, self._height / 2]
+        # init game state
+        self.direction = Direction.RIGHT
+
+        self.snake_head = Point(self.width / 2, self.height / 2)
         self.snake_body = [self.snake_head,
-                           [self.snake_head[0] - self.block_size, self.snake_head[1]],
-                           [self.snake_head[0] - 2 * self.block_size, self.snake_head[1]]]
+                           Point(self.snake_head.x - self.block_size, self.snake_head.y),
+                           Point(self.snake_head.x - (2 * self.block_size), self.snake_head.y)]
 
         self.score = 0
-        self.game_iteration = 0
+        self.rat = None
         self._place_rat()
+        self.frame_iteration = 0
 
-    # Place the rate randomly on the map
     def _place_rat(self):
-        x_rat = random.randint(0, (self.width - self.block_size) // self.block_size) * self.block_size
-        y_rat = random.randint(0, (self.height - self.block_size) // self.block_size) * self.block_size
-        self.rat_position = [x_rat, y_rat]
-
-        # to avoid initialize the rat position in the snake body
-        if self.rat_position in self.snake_body:
+        x = random.randint(0, (self.width - self.block_size) // self.block_size) * self.block_size
+        y = random.randint(0, (self.height - self.block_size) // self.block_size) * self.block_size
+        self.rat = Point(x, y)
+        if self.rat in self.snake_body:
             self._place_rat()
 
-    # method to play a step in the game
     def play_step(self, action):
-        # each time the agent take an action update the game iteration
-        self.game_iteration += 1
-
-        # quite the game manually
+        self.frame_iteration += 1
+        # 1. collect user input
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
 
-        # move
-        self._move(action)
+        # 2. move
+        self._move(action)  # update the head
         self.snake_body.insert(0, self.snake_head)
 
-        # check game over
+        # 3. check if game over
         reward = 0
         game_over = False
-        # check if there is a collision or if the agent is doing random actions for long time
-        if self._collision() or self.game_iteration > 500:
+        if self.is_collision() or self.frame_iteration > 100 * len(self.snake_body):
             game_over = True
             reward = -10
             return reward, game_over, self.score
 
-        # place new rat
-        if self.snake_head == self.rat_position:
-            self._score += 1
+        # 4. place new food or just move
+        if self.snake_head == self.rat:
+            self.score += 1
             reward = 10
             self._place_rat()
         else:
             self.snake_body.pop()
 
-        # update the user interface
+        # 5. update ui and clock
         self._update_ui()
-        self.clock.tick(self.speed)
-
+        self.clock.tick(self.game_speed)
+        # 6. return game over and score
         return reward, game_over, self.score
 
-    # check collision
-    def _collision(self, point=None):
-        if point is None:
-            point = self.snake_head
-
-        # check if the snake hits the boundary
-        if point[0] > self.width - self.block_size or point[0] < 0 or point[1] > self.height - self.block_size or point[1] < 0:
+    def is_collision(self, pt=None):
+        if pt is None:
+            pt = self.snake_head
+        # hits boundary
+        if pt.x > self.width - self.block_size or pt.x < 0 or pt.y > self.height - self.block_size or pt.y < 0:
             return True
-
-        # check if the snake hits itself
-        if point in self.snake_body[1:]:
+        # hits itself
+        if pt in self.snake_body[1:]:
             return True
 
         return False
 
-    # update the UI
     def _update_ui(self):
         self.display.fill(BLACK)
 
         for pt in self.snake_body:
-            pygame.draw.rect(self.display, BLUE1, pygame.Rect(pt.x, pt.y, self.block_size, self.block_size))
-            pygame.draw.rect(self.display, BLUE2, pygame.Rect(pt.x + 4, pt.y + 4, 12, 12))
+            pygame.draw.rect(self.display, GREEN, pygame.Rect(pt.x, pt.y, self.block_size, self.block_size))
+            pygame.draw.rect(self.display, GREEN, pygame.Rect(pt.x + 4, pt.y + 4, 12, 12))
 
-        pygame.draw.rect(self.display, RED, pygame.Rect(self.rat_position[0], self.rat_position[1], self.block_size, self.block_size))
+        pygame.draw.rect(self.display, GREEN2, pygame.Rect(self.snake_head.x, self.snake_head.y, self.block_size, self.block_size))
+
+        pygame.draw.rect(self.display, RED, pygame.Rect(self.rat.x, self.rat.y, self.block_size, self.block_size))
 
         text = font.render("Score: " + str(self.score), True, WHITE)
         self.display.blit(text, [0, 0])
         pygame.display.flip()
 
-    # method to make the agent move
     def _move(self, action):
         # [straight, right, left]
 
-        clock_wise = [direction['RIGHT'], direction['DOWN'], direction['LEFT'], direction['UP']]
+        clock_wise = [Direction.RIGHT, Direction.DOWN, Direction.LEFT, Direction.UP]
         idx = clock_wise.index(self.direction)
 
         if np.array_equal(action, [1, 0, 0]):
@@ -223,15 +158,61 @@ class Game:
 
         self.direction = new_dir
 
-        x = self.snake_head[0]
-        y = self.snake_head[1]
-        if self.direction == direction['RIGHT']:
-            x += self.block_size
-        elif self.direction == direction['LEFT']:
-            x -= self.block_size
-        elif self.direction == direction['DOWN']:
-            y += self.block_size
-        elif self.direction == direction['UP']:
-            y -= self.block_size
+        x = self.snake_head.x
+        y = self.snake_head.y
+        if self.direction == Direction.RIGHT:
+            x += BLOCK_SIZE
+        elif self.direction == Direction.LEFT:
+            x -= BLOCK_SIZE
+        elif self.direction == Direction.DOWN:
+            y += BLOCK_SIZE
+        elif self.direction == Direction.UP:
+            y -= BLOCK_SIZE
 
-        self.head = [x, y]
+        self.snake_head = Point(x, y)
+
+
+    def get_observation(self, obs_dim=1):
+        point_l = Point(self.snake_head.x - self.block_size*obs_dim, self.snake_head.y)
+        point_r = Point(self.snake_head.x + self.block_size*obs_dim, self.snake_head.y)
+        point_u = Point(self.snake_head.x, self.snake_head.y - self.block_size*obs_dim)
+        point_d = Point(self.snake_head.x, self.snake_head.y + self.block_size*obs_dim)
+
+        dir_l = self.direction == Direction.LEFT
+        dir_r = self.direction == Direction.RIGHT
+        dir_u = self.direction == Direction.UP
+        dir_d = self.direction == Direction.DOWN
+
+        state = [
+            # Danger straight
+            (dir_r and self.is_collision(point_r)) or
+            (dir_l and self.is_collision(point_l)) or
+            (dir_u and self.is_collision(point_u)) or
+            (dir_d and self.is_collision(point_d)),
+
+            # Danger right
+            (dir_u and self.is_collision(point_r)) or
+            (dir_d and self.is_collision(point_l)) or
+            (dir_l and self.is_collision(point_u)) or
+            (dir_r and self.is_collision(point_d)),
+
+            # Danger left
+            (dir_d and self.is_collision(point_r)) or
+            (dir_u and self.is_collision(point_l)) or
+            (dir_r and self.is_collision(point_u)) or
+            (dir_l and self.is_collision(point_d)),
+
+            # Move direction
+            dir_l,
+            dir_r,
+            dir_u,
+            dir_d,
+
+            # Food location
+            self.rat.x < self.snake_head.x,  # food left
+            self.rat.x > self.snake_head.x,  # food right
+            self.rat.y < self.snake_head.y,  # food up
+            self.rat.y > self.snake_head.y  # food down
+        ]
+
+        return np.array(state, dtype=int)
