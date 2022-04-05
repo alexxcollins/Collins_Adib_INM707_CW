@@ -274,23 +274,28 @@ class RobotEnv(ABC):
             for j in range(self._dims[1]):  # iterating across columns
                 cell = i * self._dims[1] + j
                 if j != self._dims[1] - 1:
-                    ones.append((cell + 1, cell))  # move right unless agent is on right edge
+                    # move right unless agent is on right edge
+                    ones.append((cell + 1, cell))  
                 if i != self._dims[0] - 1:
-                    ones.append((cell + self._dims[1], cell))  # move up if not in top row
+                    # move up if not in top row
+                    ones.append((cell + self._dims[1], cell))
                 if i != 0:
-                    ones.append((cell - self._dims[1], cell))  # move down not in bottom row
+                    # move down not in bottom row
+                    ones.append((cell - self._dims[1], cell))
                 if j != 0:
-                    ones.append((cell - 1, cell))  # move left if not on left edge
-                ones.append((cell, cell))  # staying still is possible, why not?
+                    # move left if not on left edge
+                    ones.append((cell - 1, cell))
+                # staying still is possible, why not?
+                ones.append((cell, cell))
 
         ones = tuple(zip(*ones))
         self._R[ones] = self._rewards['r_time']
-        for i in range(self._dims[0]):
-            for j in range(self._dims[1]):
-                cell = i * self._dims[0] + j
-                self._R[(cell, cell)] = self.rewards['r_time']
-                #self._R[(cell, cell)] = np.nan
-                #self._R[(cell, cell)] = 0
+        # for i in range(self._dims[0]):
+        #     for j in range(self._dims[1]):
+        #         cell = i * self._dims[0] + j
+        #         self._R[(cell, cell)] = self.rewards['r_time']
+        #         #self._R[(cell, cell)] = np.nan
+        #         #self._R[(cell, cell)] = 0
 
     # initialize the goal rewards
     def __initializeGoalPoint(self):
