@@ -42,7 +42,7 @@ class SnakeGameAI:
                  width=640,
                  height=480,
                  window_title="Reinforcement Learning Snake",
-                 block_type = ['line', 'square'],
+                 nb_block = 5,
                  block_size=20,
                  game_speed=40):
         """
@@ -57,7 +57,7 @@ class SnakeGameAI:
         self.width = width
         self.height = height
         self.window_title = window_title
-        self.block_type =  block_type
+        self.nb_block = nb_block
         self.block_size = block_size
         self.frame_iteration = None
         self.rat = None
@@ -85,7 +85,7 @@ class SnakeGameAI:
                            Point(self.snake_head.x - self.block_size, self.snake_head.y),
                            Point(self.snake_head.x - (2 * self.block_size), self.snake_head.y)]
 
-        for i in range(5):
+        for i in range(self.nb_block):
             ok = False
             while not ok:
                 x = random.randint(0, (self.width - self.block_size) // self.block_size) * self.block_size
@@ -154,6 +154,9 @@ class SnakeGameAI:
             return True
         # hits itself
         if pt in self.snake_body[1:]:
+            return True
+
+        if pt in self.blocks:
             return True
 
         return False
