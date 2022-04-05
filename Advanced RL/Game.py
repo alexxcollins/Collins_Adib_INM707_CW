@@ -26,6 +26,8 @@ BLUE1 = (0, 0, 255)
 BLUE2 = (0, 100, 255)
 BLACK = (0, 0, 0)
 
+BLOCK = (166, 166, 166)
+
 GREEN = (0, 153, 51)
 GREEN1 = (153, 255, 153)
 GREEN2 = (102, 255, 51)
@@ -40,6 +42,7 @@ class SnakeGameAI:
                  width=640,
                  height=480,
                  window_title="Reinforcement Learning Snake",
+                 block_type = ['line', 'square'],
                  block_size=20,
                  game_speed=40):
         """
@@ -47,18 +50,21 @@ class SnakeGameAI:
         :param width (int64): width of the window that will appear on the screen
         :param height (int64): height of the window that will appear on the screen
         :param window_title (str): the title of the window that will appear on the screen
+        :param block_type (list): list contains the types of blocks in the game
         :param block_size (int): the block size of each object in the game
         :param game_speed (int): the speed of the game (frame per second)
         """
         self.width = width
         self.height = height
         self.window_title = window_title
+        self.block_type =  block_type
         self.block_size = block_size
         self.frame_iteration = None
         self.rat = None
         self.score = None
         self.snake_body = None
         self.snake_head = None
+        self.blocks = []
         self.direction = None
 
         self.game_speed = game_speed
@@ -73,10 +79,21 @@ class SnakeGameAI:
         # init game state
         self.direction = Direction.RIGHT
 
+
         self.snake_head = Point(self.width / 2, self.height / 2)
         self.snake_body = [self.snake_head,
                            Point(self.snake_head.x - self.block_size, self.snake_head.y),
                            Point(self.snake_head.x - (2 * self.block_size), self.snake_head.y)]
+
+        for i in range(5):
+            ok = False
+            while not ok:
+                x = random.randint(0, (self.width - self.block_size) // self.block_size) * self.block_size
+                y = random.randint(0, (self.height - self.block_size) // self.block_size) * self.block_size
+                b = Point(x, y)
+                if b not in self.snake_body:
+                    self.blocks.append(b)
+                    ok = True
 
         # TODO:  add blocks randomly  in the game
         self.score = 0
@@ -89,6 +106,8 @@ class SnakeGameAI:
         y = random.randint(0, (self.height - self.block_size) // self.block_size) * self.block_size
         self.rat = Point(x, y)
         if self.rat in self.snake_body:
+            self._place_rat()
+        if self.rat in self.blocks:
             self._place_rat()
 
     def play_step(self, action):
@@ -107,12 +126,14 @@ class SnakeGameAI:
         reward = 0
         game_over = False
         if self.is_collision() or self.frame_iteration > 100 * len(self.snake_body):
+            self.blocks = []
             game_over = True
             reward = -10
             return reward, game_over, self.score
 
         # 4. place new food or just move
         if self.snake_head == self.rat:
+            self.blocks = []
             self.score += 1
             reward = 10
             self._place_rat()
@@ -139,6 +160,9 @@ class SnakeGameAI:
 
     def _update_ui(self):
         self.display.fill(BLACK)
+
+        for block in self.blocks:
+            pygame.draw.rect(self.display, BLOCK, pygame.Rect(block.x, block.y, self.block_size, self.block_size))
 
         for pt in self.snake_body:
             pygame.draw.rect(self.display, GREEN, pygame.Rect(pt.x, pt.y, self.block_size, self.block_size))
