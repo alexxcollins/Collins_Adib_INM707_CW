@@ -39,10 +39,10 @@ def path_in_grids(path, dims):
 
 
 def average_R_display(Rtot):
-  Rtot_avg = Rtot.cumsum() / np.arange(1, len(Rtot) + 1)
-  plt.plot(np.arange(20, len(Rtot_avg)), Rtot_avg[20:])
-  plt.title("Average Rewards per episode")
-  plt.show()
+    Rtot_avg = Rtot.cumsum() / np.arange(1, len(Rtot) + 1)
+    plt.plot(np.arange(20, len(Rtot_avg)), Rtot_avg[20:])
+    plt.title("Average Rewards per episode")
+    plt.show()
 
 
 def steps_plot(a_hist):
@@ -56,16 +56,13 @@ def steps_plot(a_hist):
 
 
 def plot_Q_changing(Q_hist, absolute=True):
-    Q_plot = []
-    for idx in range(1, len(Q_hist)):
-        if absolute:
-            difference_Qs = np.absolute(Q_hist[idx] - Q_hist[idx - 1])
-        else:
-            difference_Qs = Q_hist[idx] - Q_hist[idx - 1]
+    
+    if absolute:
+        difference_Qs = np.absolute(Q_hist[1:,:,:] - Q_hist[:-1, :, :])
+    else:
+        difference_Qs = Q_hist[1:,:,:] - Q_hist[:-1, :, :]
 
-        sum = np.sum(difference_Qs)
-
-        Q_plot.append(sum)
+    Q_plot = np.sum(difference_Qs, axis=(1,2))
 
     plt.plot(np.arange(len(Q_plot)), Q_plot)
     plt.title("Changing in Q matrixs")
