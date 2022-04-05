@@ -27,6 +27,7 @@ BLUE2 = (0, 100, 255)
 BLACK = (0, 0, 0)
 
 GREEN = (0, 153, 51)
+GREEN1 = (153, 255, 153)
 GREEN2 = (102, 255, 51)
 
 BLOCK_SIZE = 20
@@ -41,6 +42,14 @@ class SnakeGameAI:
                  window_title="Reinforcement Learning Snake",
                  block_size=20,
                  game_speed=40):
+        """
+        Constructor for the SnakeGame
+        :param width (int64): width of the window that will appear on the screen
+        :param height (int64): height of the window that will appear on the screen
+        :param window_title (str): the title of the window that will appear on the screen
+        :param block_size (int): the block size of each object in the game
+        :param game_speed (int): the speed of the game (frame per second)
+        """
         self.width = width
         self.height = height
         self.window_title = window_title
@@ -58,6 +67,7 @@ class SnakeGameAI:
         pygame.display.set_caption(self.window_title)
         self.clock = pygame.time.Clock()
         self.reset()
+        self._update_ui()
 
     def reset(self):
         # init game state
@@ -68,6 +78,7 @@ class SnakeGameAI:
                            Point(self.snake_head.x - self.block_size, self.snake_head.y),
                            Point(self.snake_head.x - (2 * self.block_size), self.snake_head.y)]
 
+        # TODO:  add blocks randomly  in the game
         self.score = 0
         self.rat = None
         self._place_rat()
@@ -131,9 +142,12 @@ class SnakeGameAI:
 
         for pt in self.snake_body:
             pygame.draw.rect(self.display, GREEN, pygame.Rect(pt.x, pt.y, self.block_size, self.block_size))
-            pygame.draw.rect(self.display, GREEN, pygame.Rect(pt.x + 4, pt.y + 4, 12, 12))
+            #pygame.draw.circle(self.display, GREEN1, pygame.Rect(pt.x + 4, pt.y + 4, 12, 12))
+            pygame.draw.circle(self.display, GREEN1, (pt.x+self.block_size/2, pt.y+self.block_size/2), 5, 0)
 
-        pygame.draw.rect(self.display, GREEN2, pygame.Rect(self.snake_head.x, self.snake_head.y, self.block_size, self.block_size))
+        pygame.draw.rect(self.display, GREEN2,
+                         pygame.Rect(self.snake_head.x, self.snake_head.y, self.block_size, self.block_size))
+
 
         pygame.draw.rect(self.display, RED, pygame.Rect(self.rat.x, self.rat.y, self.block_size, self.block_size))
 
@@ -171,12 +185,11 @@ class SnakeGameAI:
 
         self.snake_head = Point(x, y)
 
-
     def get_observation(self, obs_dim=1):
-        point_l = Point(self.snake_head.x - self.block_size*obs_dim, self.snake_head.y)
-        point_r = Point(self.snake_head.x + self.block_size*obs_dim, self.snake_head.y)
-        point_u = Point(self.snake_head.x, self.snake_head.y - self.block_size*obs_dim)
-        point_d = Point(self.snake_head.x, self.snake_head.y + self.block_size*obs_dim)
+        point_l = Point(self.snake_head.x - self.block_size * obs_dim, self.snake_head.y)
+        point_r = Point(self.snake_head.x + self.block_size * obs_dim, self.snake_head.y)
+        point_u = Point(self.snake_head.x, self.snake_head.y - self.block_size * obs_dim)
+        point_d = Point(self.snake_head.x, self.snake_head.y + self.block_size * obs_dim)
 
         dir_l = self.direction == Direction.LEFT
         dir_r = self.direction == Direction.RIGHT
