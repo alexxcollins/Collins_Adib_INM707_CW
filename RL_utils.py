@@ -46,10 +46,8 @@ def average_R_display(Rtot):
 
 
 def steps_plot(a_hist):
-    y = []
+    y = [len(h) for h in a_hist]
     x = np.arange(len(a_hist))
-    for his in a_hist:
-        y.append(len(his))
 
     y_avg = np.cumsum(y) / np.arange(1, len(y) + 1)
     plt.plot(np.arange(20, len(y_avg)), y_avg[20:])
