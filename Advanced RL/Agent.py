@@ -1,149 +1,115 @@
 import torch
+import torch.nn as nn
+import torch.optim as optim
+import os
 import random
-from collections import deque, namedtuple
+import numpy as np
+from collections import deque
 
-Transition = namedtuple('Transition', ('state', "action", 'reward', 'next_state', 'done'))
+from game import SnakeGameAI, Direction, Point
+from model import DQN
 
 
 class Agent:
+
     def __init__(self,
-                 gamma,
-                 epsilon,
-                 epsilon_decay,
-                 epsilon_threshold,
-                 memory_capacity,
-                 model,
-                 optimizer,
-                 criterion,
+                 learning_rate=0.001,
+                 gamma=0.9,
+                 epsilon=0.9,
+                 memory_capacity=100000,
                  ):
-        """
-        Constructor for the agent class
-        :param epsilon (float): Hyperparameter for the DQN, between 0 and 1
-        :param epsilon_decay (list): list contains 2 values between 0 and 1
-        :param epsilon_threshold (float): threshold for the epsilon decay
-        :param memory_capacity (int64): the max capacity for the replay memory
-        :param model (Network): The Deep Q Network
-        :param optimizer (object): Optimizer from PyTorch
-        :param criterion (object): the Loss function from PyTorch
-        """
-        # this one is to calculate the average rewards
-        self._n_games = 0
-        self._gamma = gamma
-        self._epsilon = epsilon
-        self._memory_capacity = memory_capacity
-        self._epsilon_threshold = epsilon_threshold
-        self._epsilon_decay = epsilon_decay
+        self.lr = learning_rate
+        self.gamma = gamma
+        self.epsilon = epsilon
+        self.n_games = 0
 
-        # Here we are using deque instead of normal list
-        # first, deque is faster than normal list
-        # Second, when deque reaches the max, it will start pop from the left and append from the right !
-        self._replay_memory = deque(maxlen=self._memory_capacity)
+        self.game = SnakeGameAI()
+        self.replay_memory = deque(maxlen=memory_capacity)  # popleft()
 
-        self.model = model  # our DQN
-        self.optimizer = optimizer
-        self.criterion = criterion
+        self.model = DQN(11, 256, 3)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
+        self.criterion = nn.MSELoss()
 
-    # Getter and Setters
-    @property
-    def n_games(self):
-        return self._n_games
+    def get_observation(self):
+        head = self.game.snake_body[0]
+        block_size = self.game.block_size
 
-    @n_games.setter
-    def n_games(self, n_games):
-        if n_games > 0:
-            self._n_games = n_games
+        point_l = Point(head.x - block_size, head.y)
+        point_r = Point(head.x + block_size, head.y)
+        point_u = Point(head.x, head.y - block_size)
+        point_d = Point(head.x, head.y + block_size)
 
-    @property
-    def gamma(self):
-        return self._gamma
+        dir_l = self.game.direction == Direction.LEFT
+        dir_r = self.game.direction == Direction.RIGHT
+        dir_u = self.game.direction == Direction.UP
+        dir_d = self.game.direction == Direction.DOWN
 
-    @gamma.setter
-    def gamma(self, gamma):
-        if 0 < gamma <= 1:
-            self._gamma = gamma
+        state = [
+            # Danger straight
+            (dir_r and self.game.is_collision(point_r)) or
+            (dir_l and self.game.is_collision(point_l)) or
+            (dir_u and self.game.is_collision(point_u)) or
+            (dir_d and self.game.is_collision(point_d)),
 
-    @property
-    def epsilon(self):
-        return self._epsilon
+            # Danger right
+            (dir_u and self.game.is_collision(point_r)) or
+            (dir_d and self.game.is_collision(point_l)) or
+            (dir_l and self.game.is_collision(point_u)) or
+            (dir_r and self.game.is_collision(point_d)),
 
-    @epsilon.setter
-    def epsilon(self, epsilon):
-        if 0 < epsilon <= 1:
-            self._epsilon = epsilon
+            # Danger left
+            (dir_d and self.game.is_collision(point_r)) or
+            (dir_u and self.game.is_collision(point_l)) or
+            (dir_r and self.game.is_collision(point_u)) or
+            (dir_l and self.game.is_collision(point_d)),
 
-    @property
-    def epsilon_threshold(self):
-        return self._epsilon_threshold
+            # Move direction
+            dir_l,
+            dir_r,
+            dir_u,
+            dir_d,
 
-    @epsilon.setter
-    def epsilon(self, epsilon_threshold):
-        if 0 < epsilon_threshold < 1:
-            self._epsilon_threshold = epsilon_threshold
+            # Food location
+            self.game.rat.x < self.game.snake_head.x,  # food left
+            self.game.rat.x > self.game.snake_head.x,  # food right
+            self.game.rat.y < self.game.snake_head.y,  # food up
+            self.game.rat.y > self.game.snake_head.y  # food down
+        ]
 
-    @property
-    def epsilon_decay(self):
-        return self._epsilon_decay
+        return np.array(state, dtype=int)
 
-    @epsilon_decay.setter
-    def epsilon_decay(self, epsilon_decay):
-        if len(epsilon_decay) > 2 and 0 < epsilon_decay[0] < 1 and 0 < epsilon_decay[1] < 1:
-            self._epsilon_decay = epsilon_decay
-
-    @property
-    def memory_capacity(self):
-        return self._memory_capacity
-
-    @memory_capacity.setter
-    def memory_capacity(self, memory_capacity):
-        if memory_capacity > 0:
-            self._memory_capacity = memory_capacity
-
-    @property
-    def replay_memory(self):
-        return self._replay_memory
-
-    @replay_memory.setter
-    def replay_memory(self, replay_memory):
-        self._replay_memory = replay_memory
-
-    # method to push to the memory of the agent
     def remember(self, state, action, reward, next_state, done):
-        transition = Transition(state, action, reward, next_state, done)
-        self.replay_memory.append(transition)
+        self.replay_memory.append((state, action, reward, next_state, done))  # popleft if MAX_MEMORY is reached
 
-    def get_sample(self, batch_size=1000):
-        if len(self._replay_memory) > batch_size:
-            memory_sample = random.sample(self._replay_memory, batch_size)
+    def get_memory_sample(self, batch_size=1000):
+        if len(self.replay_memory) > batch_size:
+            mini_sample = random.sample(self.replay_memory, batch_size)  # list of tuples
         else:
-            memory_sample = self.replay_memory
+            mini_sample = self.replay_memory
 
-        states, actions, rewards, next_states, dones = zip(*memory_sample)
+        states, actions, rewards, next_states, dones = zip(*mini_sample)
         return states, actions, rewards, next_states, dones
 
-    # method to get a greedy action based on random number and epsilon
-    def e_greedy_action(self, state):
-        random_number = random.uniform(0, 1)
-        greedy_action = random_number > self._epsilon
+    def get_e_action(self, state):
+        # random moves: tradeoff exploration / exploitation
         action = [0, 0, 0]
-        if greedy_action:
-            index_of_action = random.randint(0, 2)
-            action[index_of_action] = 1
-
+        if random.randint(0, 1) < self.epsilon:
+            move = random.randint(0, 2)
+            action[move] = 1
         else:
-            state = torch.tensor(state, dtype=torch.float)
-            predicted_action = self.model(state)
-            index_of_action = torch.argmax(predicted_action).item()
-            action[index_of_action] = 1
+            state0 = torch.tensor(state, dtype=torch.float)
+            prediction = self.model(state0)
+            move = torch.argmax(prediction).item()
+            action[move] = 1
 
         return action
 
-    # method to train the agent
-    def train(self, state, action, reward, next_state, done):
-        # convert all inputs to tensors
+    def train_step(self, state, action, reward, next_state, done):
         state = torch.tensor(state, dtype=torch.float)
         next_state = torch.tensor(next_state, dtype=torch.float)
         action = torch.tensor(action, dtype=torch.long)
         reward = torch.tensor(reward, dtype=torch.float)
+        # (n, x)
 
         if len(state.shape) == 1:
             # (1, x)
@@ -153,7 +119,7 @@ class Agent:
             reward = torch.unsqueeze(reward, 0)
             done = (done,)
 
-        # get predicted actions
+        # 1: predicted Q values with current state
         pred = self.model(state)
 
         target = pred.clone()
@@ -171,7 +137,30 @@ class Agent:
         self.optimizer.step()
 
     def update_policy(self):
-        if self.epsilon > self.epsilon_threshold:
-            self.epsilon = self.epsilon * self._epsilon_decay[0]
+        if self.epsilon > 0.5:
+            self.epsilon *= 0.9999
         else:
-            self.epsilon = self.epsilon * self._epsilon_decay[1]
+            self.epsilon *= 0.999
+
+    # method to save the model
+    def save_model(self, file_name):
+        model_folder_path = './model'
+        if not os.path.exists(model_folder_path):
+            os.makedirs(model_folder_path)
+
+        file_name = os.path.join(model_folder_path, file_name)
+        torch.save({'state_dict': self.model.state_dict(),
+                    'optimizer': self.optimizer.state_dict(),
+                    }, file_name)
+
+    def load_model(self, file_name):
+        model_path = os.path.join('./model', file_name)
+        if os.path.isfile(model_path):
+            print("=> loading checkpoint... ")
+            # self.model.load_state_dict(torch.load(model_path))
+            checkpoint = torch.load(model_path)
+            self.model.load_state_dict(checkpoint['state_dict'])
+            self.optimizer.load_state_dict(checkpoint['optimizer'])
+            print("done !")
+        else:
+            print("no checkpoint found...")

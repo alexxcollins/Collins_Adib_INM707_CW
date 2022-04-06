@@ -26,88 +26,86 @@ BLUE1 = (0, 0, 255)
 BLUE2 = (0, 100, 255)
 BLACK = (0, 0, 0)
 
-BLOCK = (166, 166, 166)
-
-GREEN = (0, 153, 51)
-GREEN1 = (153, 255, 153)
-GREEN2 = (102, 255, 51)
-
 BLOCK_SIZE = 20
 SPEED = 40
 
 
 class SnakeGameAI:
 
-    def __init__(self,
-                 width=640,
-                 height=480,
-                 window_title="Reinforcement Learning Snake",
-                 nb_block = 5,
-                 block_size=20,
-                 game_speed=40):
-        """
-        Constructor for the SnakeGame
-        :param width (int64): width of the window that will appear on the screen
-        :param height (int64): height of the window that will appear on the screen
-        :param window_title (str): the title of the window that will appear on the screen
-        :param block_type (list): list contains the types of blocks in the game
-        :param block_size (int): the block size of each object in the game
-        :param game_speed (int): the speed of the game (frame per second)
-        """
-        self.width = width
-        self.height = height
-        self.window_title = window_title
-        self.nb_block = nb_block
-        self.block_size = block_size
-        self.frame_iteration = None
-        self.rat = None
-        self.score = None
-        self.snake_body = None
-        self.snake_head = None
-        self.blocks = []
-        self.direction = None
-
-        self.game_speed = game_speed
+    def __init__(self, width=640, height=480, block_size=20, game_speed=50, window_title="RL Snake"):
+        self._width = width
+        self._height = height
+        self._block_size = block_size
+        self._game_speed = game_speed
         # init display
-        self.display = pygame.display.set_mode((self.width, self.height))
-        pygame.display.set_caption(self.window_title)
+        self.display = pygame.display.set_mode((self._width, self._height))
+        pygame.display.set_caption(window_title)
         self.clock = pygame.time.Clock()
+
+        self.direction = None
+        self.snake_head = None
+        self.snake_body = None
+        self.rat = None
+        self.score = 0
+        self.frame_iteration = 0
         self.reset()
-        self._update_ui()
+
+    # Getter and setter
+    @property
+    def width(self):
+        return self._width
+
+    @width.setter
+    def width(self, width):
+        if width > 0:
+            self._width = width
+
+    @property
+    def height(self):
+        return self._height
+
+    @height.setter
+    def width(self, height):
+        if height > 0:
+            self._height = height
+
+    @property
+    def block_size(self):
+        return self._block_size
+
+    @block_size.setter
+    def block_size(self, block_size):
+        if block_size > 0:
+            self._block_size = block_size
+
+    @property
+    def game_speed(self):
+        return self._game_speed
+
+    @game_speed.setter
+    def game_speed(self, game_speed):
+        if game_speed > 0:
+            self._game_speed = game_speed
 
     def reset(self):
         # init game state
         self.direction = Direction.RIGHT
 
-
-        self.snake_head = Point(self.width / 2, self.height / 2)
+        self.snake_head = Point(self._width / 2, self._height / 2)
         self.snake_body = [self.snake_head,
-                           Point(self.snake_head.x - self.block_size, self.snake_head.y),
-                           Point(self.snake_head.x - (2 * self.block_size), self.snake_head.y)]
+                           Point(self.snake_head.x - self._block_size, self.snake_head.y),
+                           Point(self.snake_head.x - (2 * self._block_size), self.snake_head.y)]
 
-        for i in range(self.nb_block):
-            ok = False
-            while not ok:
-                x = random.randint(0, (self.width - self.block_size) // self.block_size) * self.block_size
-                y = random.randint(0, (self.height - self.block_size) // self.block_size) * self.block_size
-                b = Point(x, y)
-                if b not in self.snake_body:
-                    self.blocks.append(b)
-                    ok = True
-
-        # TODO:  add blocks randomly  in the game
         self.score = 0
         self.rat = None
         self._place_rat()
         self.frame_iteration = 0
 
     def _place_rat(self):
-        x = random.randint(0, (self.width - self.block_size) // self.block_size) * self.block_size
-        y = random.randint(0, (self.height - self.block_size) // self.block_size) * self.block_size
+        x = random.randint(0, (self._width - self._block_size) // self._block_size) * self._block_size
+        y = random.randint(0, (self._height - self._block_size) // self._block_size) * self._block_size
         self.rat = Point(x, y)
         if self.rat in self.snake_body:
-            self._place_rat()
-        if self.rat in self.blocks:
             self._place_rat()
 
     def play_step(self, action):
@@ -126,14 +124,12 @@ class SnakeGameAI:
         reward = 0
         game_over = False
         if self.is_collision() or self.frame_iteration > 100 * len(self.snake_body):
-            self.blocks = []
             game_over = True
             reward = -10
             return reward, game_over, self.score
 
         # 4. place new food or just move
         if self.snake_head == self.rat:
-            self.blocks = []
             self.score += 1
             reward = 10
             self._place_rat()
@@ -142,7 +138,7 @@ class SnakeGameAI:
 
         # 5. update ui and clock
         self._update_ui()
-        self.clock.tick(self.game_speed)
+        self.clock.tick(SPEED)
         # 6. return game over and score
         return reward, game_over, self.score
 
@@ -150,13 +146,10 @@ class SnakeGameAI:
         if pt is None:
             pt = self.snake_head
         # hits boundary
-        if pt.x > self.width - self.block_size or pt.x < 0 or pt.y > self.height - self.block_size or pt.y < 0:
+        if pt.x > self._width - self._block_size or pt.x < 0 or pt.y > self._height - self._block_size or pt.y < 0:
             return True
         # hits itself
         if pt in self.snake_body[1:]:
-            return True
-
-        if pt in self.blocks:
             return True
 
         return False
@@ -164,19 +157,11 @@ class SnakeGameAI:
     def _update_ui(self):
         self.display.fill(BLACK)
 
-        for block in self.blocks:
-            pygame.draw.rect(self.display, BLOCK, pygame.Rect(block.x, block.y, self.block_size, self.block_size))
-
         for pt in self.snake_body:
-            pygame.draw.rect(self.display, GREEN, pygame.Rect(pt.x, pt.y, self.block_size, self.block_size))
-            #pygame.draw.circle(self.display, GREEN1, pygame.Rect(pt.x + 4, pt.y + 4, 12, 12))
-            pygame.draw.circle(self.display, GREEN1, (pt.x+self.block_size/2, pt.y+self.block_size/2), 5, 0)
+            pygame.draw.rect(self.display, BLUE1, pygame.Rect(pt.x, pt.y, self._block_size, self._block_size))
+            pygame.draw.rect(self.display, BLUE2, pygame.Rect(pt.x + 4, pt.y + 4, 12, 12))
 
-        pygame.draw.rect(self.display, GREEN2,
-                         pygame.Rect(self.snake_head.x, self.snake_head.y, self.block_size, self.block_size))
-
-
-        pygame.draw.rect(self.display, RED, pygame.Rect(self.rat.x, self.rat.y, self.block_size, self.block_size))
+        pygame.draw.rect(self.display, RED, pygame.Rect(self.rat.x, self.rat.y, self._block_size, self._block_size))
 
         text = font.render("Score: " + str(self.score), True, WHITE)
         self.display.blit(text, [0, 0])
@@ -202,57 +187,12 @@ class SnakeGameAI:
         x = self.snake_head.x
         y = self.snake_head.y
         if self.direction == Direction.RIGHT:
-            x += BLOCK_SIZE
+            x += self._block_size
         elif self.direction == Direction.LEFT:
-            x -= BLOCK_SIZE
+            x -= self._block_size
         elif self.direction == Direction.DOWN:
-            y += BLOCK_SIZE
+            y += self._block_size
         elif self.direction == Direction.UP:
-            y -= BLOCK_SIZE
+            y -= self._block_size
 
         self.snake_head = Point(x, y)
-
-    def get_observation(self, obs_dim=1):
-        point_l = Point(self.snake_head.x - self.block_size * obs_dim, self.snake_head.y)
-        point_r = Point(self.snake_head.x + self.block_size * obs_dim, self.snake_head.y)
-        point_u = Point(self.snake_head.x, self.snake_head.y - self.block_size * obs_dim)
-        point_d = Point(self.snake_head.x, self.snake_head.y + self.block_size * obs_dim)
-
-        dir_l = self.direction == Direction.LEFT
-        dir_r = self.direction == Direction.RIGHT
-        dir_u = self.direction == Direction.UP
-        dir_d = self.direction == Direction.DOWN
-
-        state = [
-            # Danger straight
-            (dir_r and self.is_collision(point_r)) or
-            (dir_l and self.is_collision(point_l)) or
-            (dir_u and self.is_collision(point_u)) or
-            (dir_d and self.is_collision(point_d)),
-
-            # Danger right
-            (dir_u and self.is_collision(point_r)) or
-            (dir_d and self.is_collision(point_l)) or
-            (dir_l and self.is_collision(point_u)) or
-            (dir_r and self.is_collision(point_d)),
-
-            # Danger left
-            (dir_d and self.is_collision(point_r)) or
-            (dir_u and self.is_collision(point_l)) or
-            (dir_r and self.is_collision(point_u)) or
-            (dir_l and self.is_collision(point_d)),
-
-            # Move direction
-            dir_l,
-            dir_r,
-            dir_u,
-            dir_d,
-
-            # Food location
-            self.rat.x < self.snake_head.x,  # food left
-            self.rat.x > self.snake_head.x,  # food right
-            self.rat.y < self.snake_head.y,  # food up
-            self.rat.y > self.snake_head.y  # food down
-        ]
-
-        return np.array(state, dtype=int)
