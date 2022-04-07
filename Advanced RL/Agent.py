@@ -16,18 +16,23 @@ class Agent:
                  learning_rate=0.001,
                  gamma=0.9,
                  epsilon=0.9,
+                 epsilon_decay=[0.999, 0.99],
                  memory_capacity=100000,
                  ):
         self.lr = learning_rate
         self.gamma = gamma
         self.epsilon = epsilon
+        self.epsilon_decay = epsilon_decay
         self.n_games = 0
 
         self.game = SnakeGameAI()
         self.replay_memory = deque(maxlen=memory_capacity)  # popleft()
 
-        self.model = DQN(11, 256, 3)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
+        self.policy_net = DQN(11, 256, 3)
+        self.target_net = DQN(11, 256, 3)
+        self.target_net.load_state_dict(self.policy_net.state_dict())
+        self.target_net.eval()
+        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.lr)
         self.criterion = nn.MSELoss()
 
     def get_observation(self):
@@ -88,17 +93,23 @@ class Agent:
             mini_sample = self.replay_memory
 
         states, actions, rewards, next_states, dones = zip(*mini_sample)
+        states = np.array(states)
+        actions = np.array(actions)
+        rewards = np.array(rewards)
+        next_states = np.array(next_states)
+        dones = np.array(dones)
         return states, actions, rewards, next_states, dones
 
-    def get_e_action(self, state):
+    def e_greedy_action(self, state):
         # random moves: tradeoff exploration / exploitation
         action = [0, 0, 0]
-        if random.randint(0, 1) < self.epsilon:
+        if random.randint(0, 200) < self.epsilon:
             move = random.randint(0, 2)
             action[move] = 1
         else:
-            state0 = torch.tensor(state, dtype=torch.float)
-            prediction = self.model(state0)
+            with torch.no_grad():
+                state0 = torch.tensor(state, dtype=torch.float)
+                prediction = self.policy_net(state0)
             move = torch.argmax(prediction).item()
             action[move] = 1
 
@@ -120,27 +131,35 @@ class Agent:
             done = (done,)
 
         # 1: predicted Q values with current state
-        pred = self.model(state)
+        pred = self.policy_net(state)
 
-        target = pred.clone()
+        # target = pred.clone()
+        target = self.target_net(state)
         for idx in range(len(done)):
             Q_new = reward[idx]
             if not done[idx]:
-                Q_new = reward[idx] + self.gamma * torch.max(self.model(next_state[idx]))
+                Q_new = reward[idx] + self.gamma * torch.max(self.target_net(next_state[idx]))
 
             target[idx][torch.argmax(action[idx]).item()] = Q_new
 
         self.optimizer.zero_grad()
         loss = self.criterion(target, pred)
         loss.backward()
-
+        for param in self.policy_net.parameters():
+            param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
+
+    def update_target_network(self):
+        self.target_net.load_state_dict(self.policy_net.state_dict())
 
     def update_policy(self):
         if self.epsilon > 0.5:
             self.epsilon *= 0.9999
         else:
             self.epsilon *= 0.999
+
+        if self.epsilon < 0.05:
+            self.epsilon = 0.05
 
     # method to save the model
     def save_model(self, file_name):
@@ -149,7 +168,7 @@ class Agent:
             os.makedirs(model_folder_path)
 
         file_name = os.path.join(model_folder_path, file_name)
-        torch.save({'state_dict': self.model.state_dict(),
+        torch.save({'state_dict': self.policy_net.state_dict(),
                     'optimizer': self.optimizer.state_dict(),
                     }, file_name)
 
@@ -159,8 +178,9 @@ class Agent:
             print("=> loading checkpoint... ")
             # self.model.load_state_dict(torch.load(model_path))
             checkpoint = torch.load(model_path)
-            self.model.load_state_dict(checkpoint['state_dict'])
+            self.policy_net.load_state_dict(checkpoint['state_dict'])
             self.optimizer.load_state_dict(checkpoint['optimizer'])
+            self.update_target_network()
             print("done !")
         else:
             print("no checkpoint found...")

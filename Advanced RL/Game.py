@@ -138,7 +138,7 @@ class SnakeGameAI:
 
         # 5. update ui and clock
         self._update_ui()
-        self.clock.tick(SPEED)
+        self.clock.tick(self._game_speed)
         # 6. return game over and score
         return reward, game_over, self.score
 
