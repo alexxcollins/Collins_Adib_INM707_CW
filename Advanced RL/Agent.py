@@ -16,13 +16,19 @@ class Agent:
                  learning_rate=0.001,
                  gamma=0.9,
                  epsilon=0.9,
-                 epsilon_decay=[0.999, 0.99],
+                 epsilon_decay=[0.9999, 0.999],
                  memory_capacity=100000,
+                 batch_size=1000,
+                 update_frequency=20,
+                 double_dqn=True
                  ):
         self.lr = learning_rate
         self.gamma = gamma
         self.epsilon = epsilon
         self.epsilon_decay = epsilon_decay
+        self.batch_size = batch_size
+        self.update_frequency = update_frequency
+        self.double_dqn = double_dqn
         self.n_games = 0
 
         self.game = SnakeGameAI()
@@ -35,7 +41,8 @@ class Agent:
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.lr)
         self.criterion = nn.MSELoss()
 
-    def get_observation(self):
+    # get observation and return np array of size 11
+    def get_observation(self) -> np.array:
         head = self.game.snake_body[0]
         block_size = self.game.block_size
 
@@ -83,12 +90,14 @@ class Agent:
 
         return np.array(state, dtype=int)
 
+    # method to push to the memory
     def remember(self, state, action, reward, next_state, done):
         self.replay_memory.append((state, action, reward, next_state, done))  # popleft if MAX_MEMORY is reached
 
-    def get_memory_sample(self, batch_size=1000):
-        if len(self.replay_memory) > batch_size:
-            mini_sample = random.sample(self.replay_memory, batch_size)  # list of tuples
+    # method to get random sample from the memory
+    def get_memory_sample(self):
+        if len(self.replay_memory) > self.batch_size:
+            mini_sample = random.sample(self.replay_memory, self.batch_size)  # list of tuples
         else:
             mini_sample = self.replay_memory
 
@@ -100,20 +109,64 @@ class Agent:
         dones = np.array(dones)
         return states, actions, rewards, next_states, dones
 
-    def e_greedy_action(self, state):
+    def e_greedy_action(self, state) -> list:
         # random moves: tradeoff exploration / exploitation
         action = [0, 0, 0]
         if random.randint(0, 200) < self.epsilon:
             move = random.randint(0, 2)
             action[move] = 1
         else:
+            self.policy_net.eval()
             with torch.no_grad():
                 state0 = torch.tensor(state, dtype=torch.float)
                 prediction = self.policy_net(state0)
             move = torch.argmax(prediction).item()
             action[move] = 1
+            self.policy_net.train()
 
         return action
+
+    def _synchronize_q_networks(self):
+        self.target_net.load_state_dict(self.policy_net.state_dict())
+
+    def _soft_update_target_q_network_parameters(self) -> None:
+        """Soft-update of target q-network parameters with the local q-network parameters."""
+        for target_param, local_param in zip(self.target_net.parameters(), self.policy_net.parameters()):
+            target_param.data.copy_(self.lr * local_param.data + (1 - self.lr) * target_param.data)
+
+    def update_policy(self):
+        if self.epsilon > 0.5:
+            self.epsilon *= self.epsilon_decay[0]
+        else:
+            self.epsilon *= self.epsilon_decay[1]
+
+        if self.epsilon < 0.05:
+            self.epsilon = 0.05
+
+    # method to save the model
+    def save_model(self, file_name):
+        model_folder_path = './model'
+        if not os.path.exists(model_folder_path):
+            os.makedirs(model_folder_path)
+
+        file_name = os.path.join(model_folder_path, file_name)
+        torch.save({'state_dict': self.policy_net.state_dict(),
+                    'optimizer': self.optimizer.state_dict(),
+                    }, file_name)
+
+    # method to load the weight
+    def load_model(self, file_name):
+        model_path = os.path.join('./model', file_name)
+        if os.path.isfile(model_path):
+            print("=> loading checkpoint... ")
+            # self.model.load_state_dict(torch.load(model_path))
+            checkpoint = torch.load(model_path)
+            self.policy_net.load_state_dict(checkpoint['state_dict'])
+            self.optimizer.load_state_dict(checkpoint['optimizer'])
+            self._synchronize_q_networks()
+            print("done !")
+        else:
+            print("no checkpoint found...")
 
     def train_step(self, state, action, reward, next_state, done):
         state = torch.tensor(state, dtype=torch.float)
@@ -134,13 +187,23 @@ class Agent:
         pred = self.policy_net(state)
 
         # target = pred.clone()
-        target = self.target_net(state)
-        for idx in range(len(done)):
-            Q_new = reward[idx]
-            if not done[idx]:
-                Q_new = reward[idx] + self.gamma * torch.max(self.target_net(next_state[idx]))
+        if self.double_dqn:
+            target = self.policy_net(state)
+            for idx in range(len(done)):
+                Q_new = reward[idx]
+                if not done[idx]:
+                    Q_new = reward[idx] + self.gamma * torch.max(self.target_net(next_state[idx]))
 
-            target[idx][torch.argmax(action[idx]).item()] = Q_new
+                target[idx][torch.argmax(action[idx]).item()] = Q_new
+
+        else:
+            target = self.target_net(state)
+            for idx in range(len(done)):
+                Q_new = reward[idx]
+                if not done[idx]:
+                    Q_new = reward[idx] + self.gamma * torch.max(self.target_net(next_state[idx]))
+
+                target[idx][torch.argmax(action[idx]).item()] = Q_new
 
         self.optimizer.zero_grad()
         loss = self.criterion(target, pred)
@@ -149,38 +212,5 @@ class Agent:
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
-    def update_target_network(self):
-        self.target_net.load_state_dict(self.policy_net.state_dict())
-
-    def update_policy(self):
-        if self.epsilon > 0.5:
-            self.epsilon *= 0.9999
-        else:
-            self.epsilon *= 0.999
-
-        if self.epsilon < 0.05:
-            self.epsilon = 0.05
-
-    # method to save the model
-    def save_model(self, file_name):
-        model_folder_path = './model'
-        if not os.path.exists(model_folder_path):
-            os.makedirs(model_folder_path)
-
-        file_name = os.path.join(model_folder_path, file_name)
-        torch.save({'state_dict': self.policy_net.state_dict(),
-                    'optimizer': self.optimizer.state_dict(),
-                    }, file_name)
-
-    def load_model(self, file_name):
-        model_path = os.path.join('./model', file_name)
-        if os.path.isfile(model_path):
-            print("=> loading checkpoint... ")
-            # self.model.load_state_dict(torch.load(model_path))
-            checkpoint = torch.load(model_path)
-            self.policy_net.load_state_dict(checkpoint['state_dict'])
-            self.optimizer.load_state_dict(checkpoint['optimizer'])
-            self.update_target_network()
-            print("done !")
-        else:
-            print("no checkpoint found...")
+        if self.n_games % self.update_frequency == 0:
+            self._synchronize_q_networks()

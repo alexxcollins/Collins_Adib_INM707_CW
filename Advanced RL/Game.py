@@ -8,8 +8,6 @@ pygame.init()
 font = pygame.font.Font(None, 25)
 
 
-# font = pygame.font.SysFont('arial', 25)
-
 class Direction(Enum):
     RIGHT = 1
     LEFT = 2
@@ -26,13 +24,18 @@ BLUE1 = (0, 0, 255)
 BLUE2 = (0, 100, 255)
 BLACK = (0, 0, 0)
 
-BLOCK_SIZE = 20
-SPEED = 40
-
 
 class SnakeGameAI:
 
     def __init__(self, width=640, height=480, block_size=20, game_speed=50, window_title="RL Snake"):
+        """
+        AI Snake Game Environment
+        :param width (int): width of the game window
+        :param height (int): height of the game window
+        :param block_size (int): block size of each block on the window
+        :param game_speed (int): the speed of the game
+        :param window_title (str): the title of the window
+        """
         self._width = width
         self._height = height
         self._block_size = block_size
@@ -87,6 +90,7 @@ class SnakeGameAI:
         if game_speed > 0:
             self._game_speed = game_speed
 
+    # method to reset the environment
     def reset(self):
         # init game state
         self.direction = Direction.RIGHT
@@ -101,6 +105,7 @@ class SnakeGameAI:
         self._place_rat()
         self.frame_iteration = 0
 
+    # method to place a rat randomly on the screen
     def _place_rat(self):
         x = random.randint(0, (self._width - self._block_size) // self._block_size) * self._block_size
         y = random.randint(0, (self._height - self._block_size) // self._block_size) * self._block_size
@@ -108,6 +113,7 @@ class SnakeGameAI:
         if self.rat in self.snake_body:
             self._place_rat()
 
+    # method to place a step based on action
     def play_step(self, action):
         self.frame_iteration += 1
         # 1. collect user input
@@ -142,6 +148,7 @@ class SnakeGameAI:
         # 6. return game over and score
         return reward, game_over, self.score
 
+    # method to check if there is a collision or not
     def is_collision(self, pt=None):
         if pt is None:
             pt = self.snake_head
@@ -154,6 +161,7 @@ class SnakeGameAI:
 
         return False
 
+    # method to update the user interface
     def _update_ui(self):
         self.display.fill(BLACK)
 
@@ -167,6 +175,7 @@ class SnakeGameAI:
         self.display.blit(text, [0, 0])
         pygame.display.flip()
 
+    # method to move based on action
     def _move(self, action):
         # [straight, right, left]
 
