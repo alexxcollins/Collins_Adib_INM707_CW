@@ -4,10 +4,12 @@ import torch.optim as optim
 import os
 import random
 import numpy as np
+from abc import ABC, abstractmethod
 from collections import deque
 
 from game import SnakeGameAI, Direction, Point
 from model import DQN
+from ExperienceReplayBuffer import Experience, ExperienceReplayBuffer
 
 
 class Agent:
@@ -20,24 +22,47 @@ class Agent:
                  memory_capacity=100000,
                  batch_size=1000,
                  update_frequency=20,
-                 double_dqn=True
-                 ):
+                 double_dqn=True,
+                 prioritized_memory=False):
+        """
+        Constractor for Agent class
+        -----------
+        Parameters:
+        -----------
+        learning_rate (float): learning rate of the deep network between 0 and 1
+        gamma (float): gamma value between 0 and 1
+        epsilon (float): epsilon value between 0 and 1
+        epsilon_decay (list): consists of 2 values for decay, between 0 and 1
+        memory_capacity (int64): the capacity of the buffer
+        update_frequency (int): the frequency of updating the target network
+        double_dqn (bool): True if we want to use Double Q Learning option
+        prioritized_memory (bool): True if we want to use prioritized buffer
+        """
         self.lr = learning_rate
         self.gamma = gamma
         self.epsilon = epsilon
         self.epsilon_decay = epsilon_decay
         self.batch_size = batch_size
-        self.update_frequency = update_frequency
         self.double_dqn = double_dqn
-        self.n_games = 0
+        self.prioritized_memory = prioritized_memory
+        self.update_frequency = update_frequency
+        self.number_episodes = 0
+        self.number_timesteps = 0
 
         self.game = SnakeGameAI()
-        self.replay_memory = deque(maxlen=memory_capacity)  # popleft()
 
+        if prioritized_memory:
+            pass
+        else:
+            self.replay_memory = ExperienceReplayBuffer(memory_capacity, batch_size)
+
+        # define two neural network, one for policy and one for target
         self.policy_net = DQN(11, 256, 3)
         self.target_net = DQN(11, 256, 3)
-        self.target_net.load_state_dict(self.policy_net.state_dict())
+        self._synchronize_q_networks()
         self.target_net.eval()
+
+        # Define the optimizer and the loss function
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.lr)
         self.criterion = nn.MSELoss()
 
@@ -81,49 +106,61 @@ class Agent:
             dir_u,
             dir_d,
 
-            # Food location
-            self.game.rat.x < self.game.snake_head.x,  # food left
-            self.game.rat.x > self.game.snake_head.x,  # food right
-            self.game.rat.y < self.game.snake_head.y,  # food up
-            self.game.rat.y > self.game.snake_head.y  # food down
+            # Rat location
+            self.game.rat.x < self.game.snake_head.x,  # rat left
+            self.game.rat.x > self.game.snake_head.x,  # rat right
+            self.game.rat.y < self.game.snake_head.y,  # rat up
+            self.game.rat.y > self.game.snake_head.y  # rat down
         ]
 
         return np.array(state, dtype=int)
 
     # method to push to the memory
     def remember(self, state, action, reward, next_state, done):
-        self.replay_memory.append((state, action, reward, next_state, done))  # popleft if MAX_MEMORY is reached
+        experience = Experience(state, action, reward, next_state, done)
+        self.replay_memory.append(experience)
+        # self.replay_memory.append((state, action, reward, next_state, done))  # popleft if MAX_MEMORY is reached
 
-    # method to get random sample from the memory
-    def get_memory_sample(self):
-        if len(self.replay_memory) > self.batch_size:
-            mini_sample = random.sample(self.replay_memory, self.batch_size)  # list of tuples
-        else:
-            mini_sample = self.replay_memory
-
-        states, actions, rewards, next_states, dones = zip(*mini_sample)
-        states = np.array(states)
-        actions = np.array(actions)
-        rewards = np.array(rewards)
-        next_states = np.array(next_states)
-        dones = np.array(dones)
-        return states, actions, rewards, next_states, dones
-
-    def e_greedy_action(self, state) -> list:
-        # random moves: tradeoff exploration / exploitation
+    # method to return random action
+    def _random_action(self):
         action = [0, 0, 0]
-        if random.randint(0, 200) < self.epsilon:
-            move = random.randint(0, 2)
-            action[move] = 1
-        else:
-            self.policy_net.eval()
-            with torch.no_grad():
-                state0 = torch.tensor(state, dtype=torch.float)
-                prediction = self.policy_net(state0)
-            move = torch.argmax(prediction).item()
-            action[move] = 1
-            self.policy_net.train()
+        random_move = random.randint(0, 2)
+        action[random_move] = 1
+        return action
 
+    # method to return a greedy action, takes as input state
+    def _epsilon_greedy_action(self, state):
+        action = [0, 0, 0]
+        self.policy_net.eval()
+        with torch.no_grad():
+            state = torch.tensor(state, dtype=torch.float)  # convert the state to a tensor
+            prediction = self.policy_net(state)  # get the prediction from the policy net
+
+        self.policy_net.train()
+        greedy_move = torch.argmax(prediction).item()
+        action[greedy_move] = 1
+
+        return action
+
+    # method to update the value of epsilon
+    def _update_policy(self):
+        if self.epsilon > 0.5:
+            self.epsilon *= self.epsilon_decay[0]
+        else:
+            self.epsilon *= self.epsilon_decay[1]
+
+        if self.epsilon < 0.05:
+            self.epsilon = 0.05
+
+    # function to return epsilon greedy policy
+    def choose_action(self, state) -> list:
+        # random moves: tradeoff exploration / exploitation
+        if random.uniform(0, 1) < self.epsilon:
+            action = self._random_action()
+        else:
+            action = self._epsilon_greedy_action(state)
+
+        self._update_policy()
         return action
 
     def _synchronize_q_networks(self):
@@ -133,15 +170,6 @@ class Agent:
         """Soft-update of target q-network parameters with the local q-network parameters."""
         for target_param, local_param in zip(self.target_net.parameters(), self.policy_net.parameters()):
             target_param.data.copy_(self.lr * local_param.data + (1 - self.lr) * target_param.data)
-
-    def update_policy(self):
-        if self.epsilon > 0.5:
-            self.epsilon *= self.epsilon_decay[0]
-        else:
-            self.epsilon *= self.epsilon_decay[1]
-
-        if self.epsilon < 0.05:
-            self.epsilon = 0.05
 
     # method to save the model
     def save_model(self, file_name):
@@ -168,13 +196,57 @@ class Agent:
         else:
             print("no checkpoint found...")
 
-    def train_step(self, state, action, reward, next_state, done):
+    # method to return a sample from the memory
+    def get_memory_sample(self):
+        if self.prioritized_memory:
+            pass
+        else:
+            mini_sample = self.replay_memory.sample()
+            states, actions, rewards, next_states, dones = zip(*mini_sample)
+
+            states = np.array(states)
+            actions = np.array(actions)
+            rewards = np.array(rewards)
+            next_states = np.array(next_states)
+            dones = np.array(dones)
+        return states, actions, rewards, next_states, dones
+
+    # Standard Q learning update
+    def _q_learning_update(self, state, action, reward, next_state, done):
+        # select action and evaluate it using the target network
+        target = self.target_net(state)
+        for idx in range(len(done)):
+            Q_new = reward[idx]
+            if not done[idx]:
+                Q_new = reward[idx] + self.gamma * torch.max(self.target_net(next_state[idx]))
+
+            target[idx][torch.argmax(action[idx]).item()] = Q_new
+
+        return target
+
+    # Double Q learning update
+    def _double_q_learning_update(self, state, action, reward, next_state, done):
+        # select action using policy network and evaluate it using the target network
+        target = self.policy_net(state)
+        for idx in range(len(done)):
+            Q_new = reward[idx]
+            if not done[idx]:
+                Q_new = reward[idx] + self.gamma * torch.max(self.target_net(next_state[idx]))
+
+            target[idx][torch.argmax(action[idx]).item()] = Q_new
+
+        return target
+
+    # method to make the agent learn
+    def learn(self, state, action, reward, next_state, done):
+        # convert the inputs to tensors
         state = torch.tensor(state, dtype=torch.float)
         next_state = torch.tensor(next_state, dtype=torch.float)
         action = torch.tensor(action, dtype=torch.long)
         reward = torch.tensor(reward, dtype=torch.float)
         # (n, x)
 
+        # add one more dimension if the size of inputs is 1
         if len(state.shape) == 1:
             # (1, x)
             state = torch.unsqueeze(state, 0)
@@ -183,34 +255,25 @@ class Agent:
             reward = torch.unsqueeze(reward, 0)
             done = (done,)
 
-        # 1: predicted Q values with current state
-        pred = self.policy_net(state)
-
-        # target = pred.clone()
         if self.double_dqn:
-            target = self.policy_net(state)
-            for idx in range(len(done)):
-                Q_new = reward[idx]
-                if not done[idx]:
-                    Q_new = reward[idx] + self.gamma * torch.max(self.target_net(next_state[idx]))
-
-                target[idx][torch.argmax(action[idx]).item()] = Q_new
+            target = self._double_q_learning_update(state, action, reward, next_state, done)
 
         else:
-            target = self.target_net(state)
-            for idx in range(len(done)):
-                Q_new = reward[idx]
-                if not done[idx]:
-                    Q_new = reward[idx] + self.gamma * torch.max(self.target_net(next_state[idx]))
+            target = self._q_learning_update(state, action, reward, next_state, done)
 
-                target[idx][torch.argmax(action[idx]).item()] = Q_new
+        # predicted Q values with current state
+        predicted = self.policy_net(state)
 
         self.optimizer.zero_grad()
-        loss = self.criterion(target, pred)
+        loss = self.criterion(target, predicted)
         loss.backward()
         for param in self.policy_net.parameters():
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
+        self._soft_update_target_q_network_parameters()
 
-        if self.n_games % self.update_frequency == 0:
+        self.number_episodes += 1
+        self.number_timesteps += 1
+
+        if self.number_timesteps % self.update_frequency == 0:
             self._synchronize_q_networks()

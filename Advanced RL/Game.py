@@ -3,6 +3,7 @@ import random
 from enum import Enum
 from collections import namedtuple
 import numpy as np
+import sys
 
 pygame.init()
 font = pygame.font.Font(None, 25)
@@ -113,14 +114,17 @@ class SnakeGameAI:
         if self.rat in self.snake_body:
             self._place_rat()
 
+    # quite the game
+    def end_game(self):
+        pygame.quit()
+
     # method to place a step based on action
     def play_step(self, action):
         self.frame_iteration += 1
         # 1. collect user input
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
+                self.end_game()
 
         # 2. move
         self._move(action)  # update the head
