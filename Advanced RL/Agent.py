@@ -7,8 +7,8 @@ import numpy as np
 from abc import ABC, abstractmethod
 from collections import deque
 
-from game import SnakeGameAI, Direction, Point
-from model import DQN
+from Game import SnakeGameAI, Direction, Point
+from Model import DQN
 from ExperienceReplayBuffer import Experience, ExperienceReplayBuffer
 
 
