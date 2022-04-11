@@ -69,7 +69,7 @@ class SnakeGameAI:
         return self._height
 
     @height.setter
-    def width(self, height):
+    def height(self, height):
         if height > 0:
             self._height = height
 
