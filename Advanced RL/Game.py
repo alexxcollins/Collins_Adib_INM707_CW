@@ -98,8 +98,10 @@ class SnakeGameAI:
 
         self.snake_head = Point(self._width / 2, self._height / 2)
         self.snake_body = [self.snake_head,
-                           Point(self.snake_head.x - self._block_size, self.snake_head.y),
-                           Point(self.snake_head.x - (2 * self._block_size), self.snake_head.y)]
+                           Point(self.snake_head.x
+                                 - self._block_size, self.snake_head.y),
+                           Point(self.snake_head.x
+                                 - (2 * self._block_size), self.snake_head.y)]
 
         self.score = 0
         self.rat = None
@@ -108,13 +110,15 @@ class SnakeGameAI:
 
     # method to place a rat randomly on the screen
     def _place_rat(self):
-        x = random.randint(0, (self._width - self._block_size) // self._block_size) * self._block_size
-        y = random.randint(0, (self._height - self._block_size) // self._block_size) * self._block_size
+        x = random.randint(0, (self._width - self._block_size)
+                           // self._block_size) * self._block_size
+        y = random.randint(0, (self._height - self._block_size)
+                           // self._block_size) * self._block_size
         self.rat = Point(x, y)
         if self.rat in self.snake_body:
             self._place_rat()
 
-    # quite the game
+    # quit the game
     def end_game(self):
         pygame.quit()
 
@@ -133,7 +137,9 @@ class SnakeGameAI:
         # 3. check if game over
         reward = 0
         game_over = False
-        if self.is_collision() or self.frame_iteration > 100 * len(self.snake_body):
+        if (self.is_collision()
+            # what does this do??
+            or self.frame_iteration > 100 * len(self.snake_body)):
             game_over = True
             reward = -10
             return reward, game_over, self.score
@@ -157,7 +163,9 @@ class SnakeGameAI:
         if pt is None:
             pt = self.snake_head
         # hits boundary
-        if pt.x > self._width - self._block_size or pt.x < 0 or pt.y > self._height - self._block_size or pt.y < 0:
+        if (pt.x > self._width - self._block_size
+            or pt.x < 0 or pt.y > self._height - self._block_size
+            or pt.y < 0):
             return True
         # hits itself
         if pt in self.snake_body[1:]:
@@ -167,13 +175,33 @@ class SnakeGameAI:
 
     # method to update the user interface
     def _update_ui(self):
+        
+        # snake body parts are dark blue squares (BLUE1) with
+        # light blue borders (BLUE2)
+        # calculate adjustment for BLUE2
+        border = self._block_size // 5
+        # size of each side of inner square
+        border2 = self._block_size - 2 * border
+        
         self.display.fill(BLACK)
 
         for pt in self.snake_body:
-            pygame.draw.rect(self.display, BLUE1, pygame.Rect(pt.x, pt.y, self._block_size, self._block_size))
-            pygame.draw.rect(self.display, BLUE2, pygame.Rect(pt.x + 4, pt.y + 4, 12, 12))
+            pygame.draw.rect(self.display,
+                             BLUE1,
+                             pygame.Rect(pt.x, pt.y,
+                                         self._block_size,
+                                         self._block_size))
+            pygame.draw.rect(self.display,
+                             BLUE2,
+                             pygame.Rect(pt.x + border,
+                                         pt.y + border,
+                                         border2, border2))
 
-        pygame.draw.rect(self.display, RED, pygame.Rect(self.rat.x, self.rat.y, self._block_size, self._block_size))
+        pygame.draw.rect(self.display,
+                         RED,
+                         pygame.Rect(self.rat.x, self.rat.y,
+                                     self._block_size,
+                                     self._block_size))
 
         text = font.render("Score: " + str(self.score), True, WHITE)
         self.display.blit(text, [0, 0])
@@ -183,7 +211,8 @@ class SnakeGameAI:
     def _move(self, action):
         # [straight, right, left]
 
-        clock_wise = [Direction.RIGHT, Direction.DOWN, Direction.LEFT, Direction.UP]
+        clock_wise = [Direction.RIGHT, Direction.DOWN,
+                      Direction.LEFT, Direction.UP]
         idx = clock_wise.index(self.direction)
 
         if np.array_equal(action, [1, 0, 0]):

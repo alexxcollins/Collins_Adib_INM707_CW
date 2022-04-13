@@ -42,6 +42,8 @@ class ExperienceReplayBuffer(Buffer):
         self._buffer = deque(maxlen=self._buffer_size)
 
     def append(self, experience):
+        # if len(_buffer) = buffer_size, then .append kicks of first object in deque
+        # Note from AC: clever use of deques, Khalil!
         self._buffer.append(experience)
 
     def sample(self):

@@ -68,6 +68,17 @@ class Agent:
 
     # get observation and return np array of size 11
     def get_observation(self) -> np.array:
+        """Return summary of agents observation as 
+        shape (11,) np.array.
+        
+        Values are integers representing boolean values.
+        [danger straight, danger right, danger left,
+        snake moving left, right, up, down,
+        rat left of snake's head,
+        rat right of snake's head,
+        rat above snake's head,
+        rat below snake's head]
+        """
         head = self.game.snake_body[0]
         block_size = self.game.block_size
 
@@ -119,7 +130,8 @@ class Agent:
     def remember(self, state, action, reward, next_state, done):
         experience = Experience(state, action, reward, next_state, done)
         self.replay_memory.append(experience)
-        # self.replay_memory.append((state, action, reward, next_state, done))  # popleft if MAX_MEMORY is reached
+        # self.replay_memory.append((state, action, reward, next_state, done))  
+        # popleft if memory_capacity is reached 
 
     # method to return random action
     def _random_action(self):
@@ -133,8 +145,10 @@ class Agent:
         action = [0, 0, 0]
         self.policy_net.eval()
         with torch.no_grad():
-            state = torch.tensor(state, dtype=torch.float)  # convert the state to a tensor
-            prediction = self.policy_net(state)  # get the prediction from the policy net
+            # convert the state to a tensor:
+            state = torch.tensor(state, dtype=torch.float)
+            # get the prediction from the policy net:
+            prediction = self.policy_net(state)  
 
         self.policy_net.train()
         greedy_move = torch.argmax(prediction).item()
@@ -167,9 +181,12 @@ class Agent:
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
     def _soft_update_target_q_network_parameters(self) -> None:
-        """Soft-update of target q-network parameters with the local q-network parameters."""
-        for target_param, local_param in zip(self.target_net.parameters(), self.policy_net.parameters()):
-            target_param.data.copy_(self.lr * local_param.data + (1 - self.lr) * target_param.data)
+        """Soft-update of target q-network parameters
+        with the local q-network parameters."""
+        for target_param, local_param in zip(self.target_net.parameters(),
+                                             self.policy_net.parameters()):
+            target_param.data.copy_(self.lr * local_param.data
+                                    + (1 - self.lr) * target_param.data)
 
     # method to save the model
     def save_model(self, file_name):
