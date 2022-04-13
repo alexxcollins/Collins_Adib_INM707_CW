@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from collections import deque
 
 from Game import SnakeGameAI, Direction, Point
-from Model import DQN
+from Model import DQN, DuelingDQN
 from ExperienceReplayBuffer import Experience, ExperienceReplayBuffer
 
 
@@ -23,6 +23,7 @@ class Agent:
                  batch_size=1000,
                  update_frequency=20,
                  double_dqn=True,
+                 dueling_dqn=False,
                  prioritized_memory=False):
         """
         Constractor for Agent class
@@ -57,8 +58,13 @@ class Agent:
             self.replay_memory = ExperienceReplayBuffer(memory_capacity, batch_size)
 
         # define two neural network, one for policy and one for target
-        self.policy_net = DQN(11, 256, 3)
-        self.target_net = DQN(11, 256, 3)
+        if dueling_dqn:
+            self.policy_net = DuelingDQN(11, 256, 3)
+            self.target_net = DuelingDQN(11, 256, 3)
+        else:
+            self.policy_net = DQN(11, 256, 3)
+            self.target_net = DQN(11, 256, 3)
+
         self._synchronize_q_networks()
         self.target_net.eval()
 
