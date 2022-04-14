@@ -2,8 +2,9 @@
 /__pycache__
 /Advanced RL/model/
 /Advanced RL/__pycache__/
-/Advanced /.ipynb_checkpoints
+/Advanced\ RL/.ipynb_checkpoints/
 *.ipynb_checkpoints
+.ipynb_checkpoints
 
 .jovianrc
 .idea
