@@ -28,7 +28,9 @@ BLACK = (0, 0, 0)
 
 class SnakeGameAI:
 
-    def __init__(self, width=640, height=480, block_size=20, game_speed=50, window_title="RL Snake"):
+    def __init__(self, width=640, height=480, block_size=20,
+                 game_speed=100, window_title="RL Snake",
+                 seed=42):
         """
         AI Snake Game Environment
         :param width (int): width of the game window
@@ -41,7 +43,10 @@ class SnakeGameAI:
         self._height = height
         self._block_size = block_size
         self._game_speed = game_speed
+        self.random_seed = seed
+        random.seed(self.random_seed)
         # init display
+        self.display = pygame.display.init()
         self.display = pygame.display.set_mode((self._width, self._height))
         pygame.display.set_caption(window_title)
         self.clock = pygame.time.Clock()
@@ -172,6 +177,84 @@ class SnakeGameAI:
             return True
 
         return False
+    
+    def relative_danger(self):
+        """returns flattend array of shape (4,)
+        Indices represent [ahead, right, left, behind]
+        Values are one if collision is in that direction
+        """
+        # First create ndarray of shape (2,2) to represent absolute position
+        # of collision relative to head
+        # indices represent: [[up, right],
+        #                     [left, down]]
+        point_l = Point(self.snake_head.x - self.block_size, self.snake_head.y)
+        point_r = Point(self.snake_head.x + self.block_size, self.snake_head.y)
+        point_u = Point(self.snake_head.x, self.snake_head.y - self.block_size)
+        point_d = Point(self.snake_head.x, self.snake_head.y + self.block_size)
+        
+        A = np.zeros((2,2))
+        
+        if self.is_collision(point_u):
+            A[0,0] = 1
+        if self.is_collision(point_d):
+            A[1,1] = 1
+        if self.is_collision(point_l):
+            A[1,0] = 1
+        if self.is_collision(point_r):
+            A[0,1] = 1
+        
+        # TODO: code below is repeated in relative_body() should make into its
+        # own method to prevent repitition.
+        
+        # R is position of snakes body RELATIVE to direction snake is moving
+        # To transform A to R, rotate A depeding on direction snake is moving
+        if self.direction == Direction.UP:
+            R = A
+        if self.direction == Direction.LEFT:
+            R = np.rot90(A, 1)
+        if self.direction == Direction.DOWN:
+            R = np.rot90(A, 2)
+        if self.direction == Direction.RIGHT:
+            R = np.rot90(A, 3)
+            
+        return R.flatten()
+            
+    
+    def relative_body(self):
+        """Returns ndarray of shape (4,)
+        Indices represent [ahead, right, left, behind]
+        Values are one if a segment of the snakes body is in that direction relative
+        to the snake, zero if not.
+        """
+        # First create ndarray of shape (2,2) to represent absolute position
+        # of snake body relative to head
+        # indices represent: [[up, right],
+        #                     [left, down]]
+        A = np.zeros((2,2))
+        for segment in self.snake_body[1:]:
+            if segment == self.snake_head.x:
+                if segment < self.snake_head.y:
+                    A[0,0] = 1
+                if segment > self.snake_head.y:
+                    A[1,1] = 1
+            if segment == self.snake_head.y:
+                if segment < self.snake_head.x:
+                    A[1,0] = 1
+                if segment > self.snake_head.x:
+                    A[0,1] = 1
+        
+        # R is position of snakes body RELATIVE to direction snake is moving
+        # To transform A to R, rotate A depeding on direction snake is moving
+        if self.direction == Direction.UP:
+            R = A
+        if self.direction == Direction.LEFT:
+            R = np.rot90(A, 1)
+        if self.direction == Direction.DOWN:
+            R = np.rot90(A, 2)
+        if self.direction == Direction.RIGHT:
+            R = np.rot90(A, 3)
+            
+        return R.flatten()
 
     # method to update the user interface
     def _update_ui(self):
@@ -238,3 +321,45 @@ class SnakeGameAI:
             y -= self._block_size
 
         self.snake_head = Point(x, y)
+
+    def _create_env_array(self):
+        """Change environment to an array where there are padded boundaries
+        and snake body parts. Anything that kills snakes with collision is
+        represented by a 1, anything that doesn't is represented as 0
+        
+        We pad with 3 rows/columns of walls. This is because a terminal state
+        give snake location as part of the wall. To avoid errors, x or y +- 2
+        has to be an index in the array. 
+        """
+        ar_height = int(self.height / self.block_size)
+        ar_width = int(self.width / self.block_size)
+        
+        self.env_array = np.ones((ar_width + 6, ar_height + 6))
+        self.env_array[3:-3, 3:-3] = 0
+        
+        for point in self.snake_body:
+            x, y = self._coord_to_ar_idx(point)
+            self.env_array[x,y] = 1
+        
+    def _coord_to_ar_idx(self, point):
+        """Convert x,y coord to array index.
+        
+        Devide by block size and add 2.
+        
+        E.g. if x = 0, snake is still in the game. So with grid padded by 2, 
+        x index has to be = 2. 
+        """
+        return (int(point.x / self.block_size) + 3,
+                int(point.y / self.block_size) + 3)
+    
+    def surroundings(self):
+        """Return 5x5 array of immediate surroundings"""
+        
+        self._create_env_array()
+        x, y = self._coord_to_ar_idx(self.snake_head)
+        surroundings = self.env_array[x - 2: x +3,
+                                      y - 2: y + 3]
+        # get_observations method creates list and converts to array.
+        # may as well supply it with a list from .surroundings()
+        
+        return surroundings

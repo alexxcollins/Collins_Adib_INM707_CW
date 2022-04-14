@@ -15,6 +15,7 @@ from ExperienceReplayBuffer import Experience, ExperienceReplayBuffer
 class Agent:
 
     def __init__(self,
+                 get_observation='relative_snake',
                  learning_rate=0.001,
                  gamma=0.9,
                  epsilon=0.9,
@@ -23,12 +24,26 @@ class Agent:
                  batch_size=1000,
                  update_frequency=20,
                  double_dqn=True,
-                 prioritized_memory=False):
+                 prioritized_memory=False,
+                 greedy=True,
+                 game = SnakeGameAI()):
         """
         Constractor for Agent class
         -----------
         Parameters:
         -----------
+        get_observation (string): either 'relative_snake', 'surroundings', 'simple'
+            There are three different representations of the snake's perception of
+            its environment. 
+                'relative_snake' defines observed state as whether the snakes body is
+                ahead, right, left or behind the head, and whether there is an obstacle
+                next to the snakes head.
+                'surroundings' defines a 5x5 square around the snakes head and whether
+                it contains walls or snake's body.
+                'simple' defines whether snake is next to an obstacle and which direction
+                the snake is pointing.
+                All functions return whether the rat is ahead/behind or left/right of
+                the snake's head.
         learning_rate (float): learning rate of the deep network between 0 and 1
         gamma (float): gamma value between 0 and 1
         epsilon (float): epsilon value between 0 and 1
@@ -37,7 +52,11 @@ class Agent:
         update_frequency (int): the frequency of updating the target network
         double_dqn (bool): True if we want to use Double Q Learning option
         prioritized_memory (bool): True if we want to use prioritized buffer
+        greedy: set to False if you want the snake to make optimal policy choices
+        game: allows the game to be constructed and shared between different agents - 
+              this is necessary to prevent kernal restarts
         """
+        self.observation_mode = get_observation
         self.lr = learning_rate
         self.gamma = gamma
         self.epsilon = epsilon
@@ -48,17 +67,28 @@ class Agent:
         self.update_frequency = update_frequency
         self.number_episodes = 0
         self.number_timesteps = 0
+        self.greedy = greedy
 
-        self.game = SnakeGameAI()
+        self.game = game
 
+        # TODO - get rid of prioritized_memory: we don't use it
         if prioritized_memory:
             pass
         else:
             self.replay_memory = ExperienceReplayBuffer(memory_capacity, batch_size)
 
+        if self.observation_mode == 'relative_snake':
+            self.get_observation = self.get_observation_relative_snake
+            input_nodes = 12
+        if self.observation_mode == 'surroundings':
+            self.get_observation = self.get_observation_surroundings
+            input_nodes = 29
+        if self.observation_mode == 'simple':
+            self.get_observation = self.get_observation_simple
+            input_nodes = 11
         # define two neural network, one for policy and one for target
-        self.policy_net = DQN(11, 256, 3)
-        self.target_net = DQN(11, 256, 3)
+        self.policy_net = DQN(input_nodes, 256, 3)
+        self.target_net = DQN(input_nodes, 256, 3)
         self._synchronize_q_networks()
         self.target_net.eval()
 
@@ -66,8 +96,78 @@ class Agent:
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.lr)
         self.criterion = nn.MSELoss()
 
+    # get observation and return np array of size 
+    def get_observation_surroundings(self) -> np.array:
+        """Return summary of agents observation as 
+        shape (29,) np.array.
+        
+        Values are integers representing boolean values.
+        [25 element list representing danger or safety in surrounding squares,
+        rat left of snake's head,
+        rat right of snake's head,
+        rat above snake's head,
+        rat below snake's head]
+        """
+        head = self.game.snake_body[0]
+        block_size = self.game.block_size
+        
+        rat_up = self.game.rat.x < self.game.snake_head.x
+        rat_down = self.game.rat.x > self.game.snake_head.x
+        rat_right = self.game.rat.y > self.game.snake_head.y
+        rat_left = self.game.rat.y < self.game.snake_head.y
+        
+        surroundings = self.game.surroundings()
+        
+        # depending on direction the snake is facing, rotate surroundings
+        # and relative_rate arrays.
+        if self.game.direction == Direction.UP:
+            relative_rat = [rat_up, rat_down, rat_left, rat_right]
+        if self.game.direction == Direction.LEFT:
+            surroundings = np.rot90(surroundings, 1)
+            relative_rat = [rat_left, rat_right, rat_down, rat_up]
+        if self.game.direction == Direction.DOWN:
+            surroundings = np.rot90(surroundings, 2)
+            relative_rat = [rat_down, rat_up, rat_right, rat_left]
+        if self.game.direction == Direction.RIGHT:
+            surroundings = np.rot90(surroundings, 3)
+            relative_rat = [rat_right, rat_left, rat_up, rat_down]
+
+        return np.concatenate((surroundings.flatten(), np.array(relative_rat, dtype=int)))
+    
+    def get_observation_relative_snake(self) -> np.array:
+        """Return summary of agents observation as 
+        shape (12,) np.array.
+        
+        Values are integers representing boolean values.
+        [4 elemnts representing if the snakes body is above, below, right or left of snake,
+        4 elements representing if snake will crash into something,
+        4 elements representing where the rat is relative to the snake]
+        """
+        rat_up = self.game.rat.x < self.game.snake_head.x
+        rat_down = self.game.rat.x > self.game.snake_head.x
+        rat_right = self.game.rat.y > self.game.snake_head.y
+        rat_left = self.game.rat.y < self.game.snake_head.y
+        
+        relative_body = self.game.relative_body()
+        
+        relative_danger = self.game.relative_danger()
+        
+        # depending on direction the snake is facing, rotate relative_rat arrays.
+        if self.game.direction == Direction.UP:
+            relative_rat = [rat_up, rat_down, rat_left, rat_right]
+        if self.game.direction == Direction.LEFT:
+            relative_rat = [rat_left, rat_right, rat_down, rat_up]
+        if self.game.direction == Direction.DOWN:
+            relative_rat = [rat_down, rat_up, rat_right, rat_left]
+        if self.game.direction == Direction.RIGHT:
+            relative_rat = [rat_right, rat_left, rat_up, rat_down]
+
+        return np.concatenate((relative_body,
+                               relative_danger,
+                               np.array(relative_rat, dtype=int)))
+    
     # get observation and return np array of size 11
-    def get_observation(self) -> np.array:
+    def get_observation_simple(self) -> np.array:
         """Return summary of agents observation as 
         shape (11,) np.array.
         
@@ -169,7 +269,7 @@ class Agent:
     # function to return epsilon greedy policy
     def choose_action(self, state) -> list:
         # random moves: tradeoff exploration / exploitation
-        if random.uniform(0, 1) < self.epsilon:
+        if random.uniform(0, 1) < self.epsilon and self.greedy:
             action = self._random_action()
         else:
             action = self._epsilon_greedy_action(state)
