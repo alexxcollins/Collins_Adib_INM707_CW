@@ -24,16 +24,21 @@ def plot(scores, mean_scores):
 def training_loop(game, model_name, load_model=False, 
                   get_observation = 'relative_snake',
                   greedy=True, 
-                  double_dqn=False, num_episodes=1000):
+                  double_dqn=False, 
+                  dueling_dqn=False,
+                  num_episodes=1000):
     
     plot_scores = []
     plot_mean_scores = []
     total_score = 0
     record = 0
     epsilons = []
-    agent = Agent(double_dqn=double_dqn, game=game, greedy=greedy)
+    agent = Agent(double_dqn=double_dqn,
+                  dueling_dqn=dueling_dqn,
+                  game=game, greedy=greedy)
     if load_model:
         agent.load_model(model_name)
+        print('loaded {}'.format(model_name))
 
     episode = 0
     while episode < num_episodes:
@@ -54,7 +59,9 @@ def training_loop(game, model_name, load_model=False,
 
             if score > record:
                 record = score
-                agent.save_model(model_name)
+                if greedy:
+                    # don't save the model if evaluating it
+                    agent.save_model(model_name)
 
 
 
