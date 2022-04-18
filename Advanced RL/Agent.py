@@ -19,7 +19,7 @@ class Agent:
                  learning_rate=0.001,
                  gamma=0.9,
                  epsilon=0.9,
-                 epsilon_decay=[0.9999, 0.999],
+                 epsilon_decay=[0.999, 0.995],
                  memory_capacity=100000,
                  batch_size=1000,
                  update_frequency=20,
@@ -264,7 +264,7 @@ class Agent:
         return action
 
     # method to update the value of epsilon
-    def _update_policy(self):
+    def update_policy(self):
         if self.epsilon > 0.5:
             self.epsilon *= self.epsilon_decay[0]
         else:
@@ -280,8 +280,12 @@ class Agent:
             action = self._random_action()
         else:
             action = self._epsilon_greedy_action(state)
-
-        self._update_policy()
+        
+        # Alex: I think we really should update epsilon after each
+        # episode, otherwise it's hard to compare across different 
+        # algos etc cos epsilon will decay to different values over 100 episodes say,
+        # and we can't tell how random the agents actions are
+        # self.update_policy()
         return action
 
     def _synchronize_q_networks(self):
