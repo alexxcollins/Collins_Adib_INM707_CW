@@ -88,10 +88,12 @@ def training_loop(game, model_name, load_model=False,
             mean_score = total_score / agent.number_episodes
             plot_mean_scores.append(mean_score)
             #print('Game', agent.n_games, 'Score', score, 'Record:', record, 'Mean Score: ', mean_score)
-            if plot_update_at_end or episode == num_episodes - 1:
-                plot(plot_scores,plot_mean_scores)
-            else:
+            if plot_update_at_end and not episode == num_episodes:
                 update_progress(episode/num_episodes)
+                print(episode)
+            else:
+                plot(plot_scores, plot_mean_scores)
+                print(episode)
                 
             
             
