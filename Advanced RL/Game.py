@@ -29,6 +29,7 @@ BLACK = (0, 0, 0)
 class SnakeGameAI:
 
     def __init__(self, width=640, height=480, block_size=20,
+                 UI=False,
                  game_speed=100, window_title="RL Snake",
                  seed=42):
         """
@@ -36,8 +37,11 @@ class SnakeGameAI:
         :param width (int): width of the game window
         :param height (int): height of the game window
         :param block_size (int): block size of each block on the window
+        :param UI (bool): set to true to display pyGame UI. Can set to
+            false if training in cloud environment with no video UI
         :param game_speed (int): the speed of the game
         :param window_title (str): the title of the window
+        :param seed (int): random seed
         """
         self._width = width
         self._height = height
@@ -45,11 +49,13 @@ class SnakeGameAI:
         self._game_speed = game_speed
         self.random_seed = seed
         random.seed(self.random_seed)
+        self.UI = UI
         # init display
-        self.display = pygame.display.init()
-        self.display = pygame.display.set_mode((self._width, self._height))
-        pygame.display.set_caption(window_title)
-        self.clock = pygame.time.Clock()
+        if self.UI:
+            self.display = pygame.display.init()
+            self.display = pygame.display.set_mode((self._width, self._height))
+            pygame.display.set_caption(window_title)
+            self.clock = pygame.time.Clock()
 
         self.direction = None
         self.snake_head = None
@@ -131,9 +137,10 @@ class SnakeGameAI:
     def play_step(self, action):
         self.frame_iteration += 1
         # 1. collect user input
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.end_game()
+        if self.UI:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.end_game()
 
         # 2. move
         self._move(action)  # update the head
@@ -158,8 +165,9 @@ class SnakeGameAI:
             self.snake_body.pop()
 
         # 5. update ui and clock
-        self._update_ui()
-        self.clock.tick(self._game_speed)
+        if self.UI:
+            self._update_ui()
+            self.clock.tick(self._game_speed)
         # 6. return game over and score
         return reward, game_over, self.score
 

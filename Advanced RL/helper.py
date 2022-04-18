@@ -5,6 +5,23 @@ import numpy as np
 
 plt.ion()
 
+def update_progress(progress):
+    bar_length = 20
+    if isinstance(progress, int):
+        progress = float(progress)
+    if not isinstance(progress, float):
+        progress = 0
+    if progress < 0:
+        progress = 0
+    if progress >= 1:
+        progress = 1
+
+    block = int(round(bar_length * progress))
+
+    display.clear_output(wait = True)
+    text = "Progress: [{0}] {1:.1f}%".format( "#" * block + "-" * (bar_length - block), progress * 100)
+    print(text)
+
 def plot(scores, mean_scores):
     display.clear_output(wait=True)
     display.display(plt.gcf())
@@ -26,7 +43,8 @@ def training_loop(game, model_name, load_model=False,
                   greedy=True, 
                   double_dqn=False, 
                   dueling_dqn=False,
-                  num_episodes=1000):
+                  num_episodes=1000,
+                  plot_update_at_end=False):
     
     plot_scores = []
     plot_mean_scores = []
@@ -70,6 +88,13 @@ def training_loop(game, model_name, load_model=False,
             mean_score = total_score / agent.number_episodes
             plot_mean_scores.append(mean_score)
             #print('Game', agent.n_games, 'Score', score, 'Record:', record, 'Mean Score: ', mean_score)
-            plot(plot_scores,plot_mean_scores)
+            if plot_update_at_end and not episode == num_episodes:
+                update_progress(episode/num_episodes)
+                print(episode)
+            else:
+                plot(plot_scores, plot_mean_scores)
+                print(episode)
+                
+            
             
     return agent, np.array(plot_scores), np.array(plot_mean_scores)
