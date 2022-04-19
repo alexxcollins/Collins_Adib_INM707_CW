@@ -31,7 +31,8 @@ class SnakeGameAI:
     def __init__(self, width=640, height=480, block_size=20,
                  UI=False,
                  game_speed=100, window_title="RL Snake",
-                 seed=42):
+                 rat_reset_seeds=np.random.randint(0,100000,size=1000)
+                ):
         """
         AI Snake Game Environment
         :param width (int): width of the game window
@@ -47,8 +48,7 @@ class SnakeGameAI:
         self._height = height
         self._block_size = block_size
         self._game_speed = game_speed
-        self.random_seed = seed
-        random.seed(self.random_seed)
+        self._rat_reset_seeds = iter(rat_reset_seeds)
         self.UI = UI
         # init display
         if self.UI:
@@ -101,6 +101,14 @@ class SnakeGameAI:
     def game_speed(self, game_speed):
         if game_speed > 0:
             self._game_speed = game_speed
+            
+    @property
+    def rat_reset_seeds(self):
+        return self._rat_reset_seeds
+
+    @rat_reset_seeds.setter
+    def rat_reset_seeds(self, seed_array):
+         self._rat_reset_seeds = iter(seed_array)
 
     # method to reset the environment
     def reset(self):
@@ -121,6 +129,7 @@ class SnakeGameAI:
 
     # method to place a rat randomly on the screen
     def _place_rat(self):
+        random.seed(next(self._rat_reset_seeds))
         x = random.randint(0, (self._width - self._block_size)
                            // self._block_size) * self._block_size
         y = random.randint(0, (self._height - self._block_size)
