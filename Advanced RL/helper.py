@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 from IPython import display
 from Agent import Agent
 import numpy as np
+from Game import SnakeGameAI
 
 plt.ion()
 
@@ -67,13 +68,26 @@ def ax_plot(ax, scores, mean_scores, window=100, title=None):
     ax.text(len(scores)-1, scores[-1], '{:.2f}'.format(scores[-1]), fontsize=8)
     ax.text(len(mean_scores)-1, mean_scores[-1], '{:.2f}'.format(mean_scores[-1]))
     
-def training_loop(game, model_name, load_model=False, 
+def training_loop(game_kwargs, #dict of kwargs to construct SnakeGameAI
+                  model_name, load_model=False, 
                   get_observation = 'relative_snake',
                   greedy=True, 
                   double_dqn=False, 
                   dueling_dqn=False,
                   num_episodes=1000,
-                  plot_update_at_end=False):
+                  plot_update_at_end=False,
+                  random_seed=42
+                 ):
+    
+    # to make runs with different algorithms consistent and comparible, we always
+    # want the rats to appear in the same squares for each game. To achieve this
+    # we have to set the random seed to be the same for the start of each episode.
+    # random.randint() is also called by agent a variable amount of times in between
+    # eating each rat. So we have to reset random seed after a rat is eaten.
+    rng = np.random.default_rng(seed=random_seed)
+    rat_seeds = rng.integers(0, 10e6, size=1000)
+    
+    game = SnakeGameAI(**game_kwargs, rat_reset_seeds=rat_seeds)
     
     plot_scores = []
     plot_mean_scores = []
@@ -88,6 +102,7 @@ def training_loop(game, model_name, load_model=False,
         print('loaded {}'.format(model_name))
 
     episode = 0
+    
     while episode < num_episodes:
         state = agent.get_observation()
         action = agent.choose_action(state)
@@ -98,7 +113,9 @@ def training_loop(game, model_name, load_model=False,
 
         if done:
             episode += 1
-            # train long memory, plot result
+            rat_seeds = rng.integers(0, 10e6, size=1000) # new game for episode i will always
+            # start the same
+            agent.game.rat_reset_seeds = rat_seeds
             agent.game.reset()
             agent.update_policy()
 
@@ -124,7 +141,5 @@ def training_loop(game, model_name, load_model=False,
             else:
                 plot(plot_scores, plot_mean_scores)
                 print(episode)
-                
-            
             
     return agent, np.array(plot_scores), np.array(plot_mean_scores)
