@@ -135,13 +135,11 @@ def training_loop(game_kwargs, #dict of kwargs to construct SnakeGameAI
             mean_score = total_score / agent.number_episodes
             plot_mean_scores.append(mean_score)
             #print('Game', agent.n_games, 'Score', score, 'Record:', record, 'Mean Score: ', mean_score)
-            # if plot_update_at_end and not episode == num_episodes:
-            #     update_progress(episode/num_episodes)
-            #     print('{}; episode: {}'.format(model_name.split('.')[0], episode))
-            # else:
-            #     plot(plot_scores, plot_mean_scores)
-            #     print(episode)
-                
-            
+            if plot_update_at_end and not episode == num_episodes:
+                update_progress(episode/num_episodes)
+                print('{}; episode: {}'.format(model_name.split('.')[0], episode))
+            else:
+                plot(plot_scores, plot_mean_scores)
+                print(episode)
             
     return agent, np.array(plot_scores), np.array(plot_mean_scores)
