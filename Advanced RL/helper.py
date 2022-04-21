@@ -69,9 +69,13 @@ def ax_plot(ax, scores, mean_scores, window=100, title=None):
     ax.text(len(mean_scores)-1, mean_scores[-1], '{:.2f}'.format(mean_scores[-1]))
     
 def training_loop(game_kwargs, #dict of kwargs to construct SnakeGameAI
-                  model_name, load_model=False, 
+                  model_name,  # name of model to load
+                  load_model=False,
+                  save_name=None, # name to save best state of model to
+                  episode_save = None, # can save after n episodes
                   get_observation = 'relative_snake',
-                  greedy=True, 
+                  greedy=True,
+                  epsilon_kwargs={'epsilon': 0.9, 'epsilon_decay':[0.999, 0.995]},
                   double_dqn=False, 
                   dueling_dqn=False,
                   num_episodes=1000,
@@ -87,6 +91,9 @@ def training_loop(game_kwargs, #dict of kwargs to construct SnakeGameAI
     rng = np.random.default_rng(seed=random_seed)
     rat_seeds = rng.integers(0, 10e6, size=1000)
     
+    if save_name is None:
+        save_name = model_name.split('.')[0] + '_v2' + model_name.split('.')[1]
+    
     game = SnakeGameAI(**game_kwargs, rat_reset_seeds=rat_seeds)
     
     plot_scores = []
@@ -96,7 +103,8 @@ def training_loop(game_kwargs, #dict of kwargs to construct SnakeGameAI
     epsilons = []
     agent = Agent(double_dqn=double_dqn,
                   dueling_dqn=dueling_dqn,
-                  game=game, greedy=greedy)
+                  game=game, greedy=greedy,
+                  **epsilon_kwargs)
     if load_model:
         agent.load_model(model_name)
         print('loaded {}'.format(model_name))
@@ -122,24 +130,26 @@ def training_loop(game_kwargs, #dict of kwargs to construct SnakeGameAI
             states, actions, rewards, new_states, dones = agent.get_memory_sample()
             agent.learn(states, actions, rewards, new_states, dones)
 
-            # Alex: I don't think we should do the below: while running greedy policy
-            # there is randomness to when the snake gets a high score anyway.
-            # if score > record:
-            #     record = score
-            #     if greedy:
-            #         # don't save the model if evaluating it
-            #         agent.save_model(model_name)
-
             plot_scores.append(score)
             total_score += score
             mean_score = total_score / agent.number_episodes
             plot_mean_scores.append(mean_score)
-            #print('Game', agent.n_games, 'Score', score, 'Record:', record, 'Mean Score: ', mean_score)
+            moving_avg = moving_average(np.array(plot_scores), 100)
+            if len(moving_avg) > 0:
+                if moving_avg[-1] == moving_avg.max():
+                    if greedy:
+                        agent.save_model(save_name)
+                    
+            if episode_save == episode:
+                agent.save_model(save_name.split('.')[0] + '_' + str(episode_save)
+                                + '_episodes.' + save_name.split('.')[1])
+                    
             if plot_update_at_end and not episode == num_episodes:
                 update_progress(episode/num_episodes)
                 print('{}; episode: {}'.format(model_name.split('.')[0], episode))
             else:
                 plot(plot_scores, plot_mean_scores)
-                print(episode)
-            
+                
     return agent, np.array(plot_scores), np.array(plot_mean_scores)
+
+            
