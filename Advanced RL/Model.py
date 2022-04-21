@@ -14,6 +14,7 @@ class DQN(nn.Module):
         x = self.linear2(x)
         return x
     
+   
 class DuelingDQN(nn.Module):
 
     def __init__(self, input_size, hidden_size, output_size):
